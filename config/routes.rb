@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   resources :instruments, only: [:create, :update, :destroy, :show] do
     get :search, on: :collection
     post :refresh, on: :member
+    patch :move, on: :member
     resources :price_levels, only: [:create, :destroy]
   end
   namespace :internal do

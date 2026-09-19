@@ -35,6 +35,14 @@ class InstrumentsController < ApplicationController
       redirect_back fallback_location: root_path, alert: @save_error
     end
   end
+
+  def move
+    return head :bad_request unless %w[before after].include?(params[:placement])
+
+    Instrument.find(params[:id]).move_in_list!(target_id: params.require(:target_id), placement: params[:placement])
+    head :no_content
+  end
+
   def destroy
     Instrument.find(params[:id]).destroy!
     redirect_to root_path, notice: "Инструмент удалён"

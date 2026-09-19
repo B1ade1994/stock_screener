@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_19_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_19_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -52,11 +52,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_000100) do
     t.integer "lot", default: 1, null: false
     t.integer "minimum_volume", default: 10, null: false
     t.string "name", null: false
+    t.integer "position", null: false
     t.string "ticker", null: false
     t.string "uid", null: false
     t.datetime "updated_at", null: false
     t.boolean "volume_enabled", default: true, null: false
     t.decimal "volume_multiplier", precision: 8, scale: 2, default: "3.0", null: false
+    t.index ["position"], name: "index_instruments_on_position"
     t.index ["uid"], name: "index_instruments_on_uid", unique: true
   end
 

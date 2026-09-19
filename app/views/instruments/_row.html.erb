@@ -1,4 +1,4 @@
-<tr id="<%= dom_id(instrument) %>" class="<%= 'disabled-row' unless instrument.enabled %>">
+<tr id="<%= dom_id(instrument) %>" data-instrument-id="<%= instrument.id %>" data-move-url="<%= move_instrument_path(instrument) %>" class="<%= 'disabled-row' unless instrument.enabled %>">
   <td>
     <%= link_to instrument.ticker, instrument_path(instrument), class: "ticker", data: { turbo_frame: "_top" } %>
     <span class="instrument-name"><%= instrument.name %></span>
@@ -25,5 +25,8 @@
       <span class="muted">Ожидаем сделки</span>
     <% end %>
     <small class="autosave-error" role="alert" data-autosave-feedback><%= local_assigns[:save_error] %></small>
+  </td>
+  <td class="row-order">
+    <button type="button" class="drag-handle" aria-label="Переместить <%= instrument.ticker %>" title="Перетащите строку; с клавиатуры — клавиши вверх/вниз" data-action="pointerdown->reorder#start keydown->reorder#key"><span aria-hidden="true">⠿</span></button>
   </td>
 </tr>
