@@ -1,15 +1,28 @@
 <%= turbo_frame_tag "instrument-chart", data: { turbo_action: "advance" } do %>
-  <section class="panel padded">
+  <section class="panel padded" data-controller="chart-strength-filter" data-chart-strength-filter-instrument-value="<%= @instrument.id %>" data-action="click@window->chart-strength-filter#outside keydown.esc@window->chart-strength-filter#close turbo:before-cache@document->chart-strength-filter#close">
     <div class="panel-heading flush chart-heading">
       <div>
         <h2><%= @timeframe == 'week' ? 'Недельный контекст' : 'Дневной контекст' %></h2>
         <span class="muted">Все загруженные завершённые свечи: <%= @candles.size %> · цены <%= @instrument.future? ? 'в пунктах' : @instrument.currency.upcase %></span>
       </div>
+      <div class="chart-tools">
+        <% if @candles.any? %>
+          <details class="chart-strength-choice" data-chart-strength-filter-target="menu">
+            <summary data-chart-strength-filter-target="summary">Сила: все</summary>
+            <div class="chart-strength-options" role="group" aria-label="Сила уровней на графике">
+              <label class="strength-select-all"><input type="checkbox" checked data-chart-strength-filter-target="all" data-action="change->chart-strength-filter#toggleAll">Все уровни</label>
+              <% { '3' => 'Высокая', '2' => 'Средняя', '1' => 'Низкая', 'unrated' => 'Без оценки / предварительные' }.each do |value, label| %>
+                <label><input type="checkbox" value="<%= value %>" checked data-chart-strength-filter-target="choice" data-action="change->chart-strength-filter#change"><%= label %></label>
+              <% end %>
+            </div>
+          </details>
+        <% end %>
       <nav class="chart-periods" aria-label="Период свечей">
         <% { 'day' => 'День · 1D', 'week' => 'Неделя · 1W' }.each do |timeframe, label| %>
           <%= link_to label, instrument_path(@instrument, timeframe: timeframe), class: "button #{@timeframe == timeframe ? 'primary' : 'secondary'}", aria: { current: @timeframe == timeframe ? 'page' : nil } %>
         <% end %>
       </nav>
+      </div>
     </div>
     <% if @candles.any? %>
       <%
@@ -53,7 +66,7 @@
           <% end %>
         <% end %>
         <% @levels.each do |level| %>
-          <g data-chart-level-id="<%= level.id %>" display="<%= level.chart_visible? ? 'inline' : 'none' %>">
+          <g data-chart-level-id="<%= level.id %>" data-level-strength="<%= @level_strength.call(level).grade || 'unrated' %>" data-chart-visible="<%= level.chart_visible? %>" display="<%= level.chart_visible? ? 'inline' : 'none' %>">
           <% if level.upper_bound > level.lower_bound %>
             <rect class="chart-zone" data-level-id="<%= level.id %>" x="0" width="900" y="<%= y.call(level.upper_bound) %>" height="<%= y.call(level.lower_bound) - y.call(level.upper_bound) %>" fill="<%= level.timeframe == 'week' ? '#9363b8' : '#658bb4' %>" fill-opacity="<%= level.status == 'candidate' ? '0.05' : '0.12' %>">
               <title><%= number_with_precision(level.lower_bound, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %>–<%= number_with_precision(level.upper_bound, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %> · <%= level_status_label(level.status) %></title>

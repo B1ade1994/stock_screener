@@ -121,9 +121,24 @@ RSpec.describe "Instrument chart", type: :request do
     get instrument_path(instrument)
     page = Nokogiri::HTML(response.body)
     expect(page.css(".level-strength").map { |node| node["data-strength"] }).to eq(%w[1 2 3])
+    expect(page.css("svg [data-chart-level-id]").map { |node| node["data-level-strength"] }).to eq(%w[1 2 3])
+    expect(page.css("[data-chart-strength-filter-target='choice']").map { |node| node["value"] }).to eq(%w[3 2 1 unrated])
     row = page.at_css("tr[data-price-level-id='#{levels.last.id}']")
     expect(row.text).to include("Высокая", "5.00", "среди 1D")
     expect(page.at_css(".chart-level[data-level-id='#{levels.last.id}'] title").text).to include("Сила: Высокая")
+  end
+
+  it "keeps unrated and eye-hidden metadata separate from the strength filter" do
+    candle("day", 1.day.ago)
+    manual = instrument.price_levels.create!(price: 100, timeframe: "day", side: "support", source: "manual", chart_visible: false)
+    get instrument_path(instrument)
+    page = Nokogiri::HTML(response.body)
+    group = page.at_css("svg [data-chart-level-id='#{manual.id}']")
+    expect(group["data-level-strength"]).to eq("unrated")
+    expect(group["data-chart-visible"]).to eq("false")
+    expect(group["display"]).to eq("none")
+    expect(page.at_css("[data-controller='chart-strength-filter']")["data-chart-strength-filter-instrument-value"]).to eq(instrument.id.to_s)
+    expect(page.at_css("tr[data-price-level-id='#{manual.id}']")).to be_present
   end
 
 end

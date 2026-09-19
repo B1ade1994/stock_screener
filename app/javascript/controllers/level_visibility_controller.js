@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { applyLevelVisibility } from "chart_level_filter"
 
 export default class extends Controller {
   static targets = ["button", "slash", "error"]
@@ -27,7 +28,8 @@ export default class extends Controller {
       this.slashTarget.setAttribute("display", this.visibleValue ? "none" : "inline")
       // Only visibility changes: the chart controller, zoom and page scroll stay intact.
       document.querySelectorAll(`[data-chart-level-id="${this.idValue}"]`).forEach(group => {
-        group.setAttribute("display", this.visibleValue ? "inline" : "none")
+        group.dataset.chartVisible = String(this.visibleValue)
+        applyLevelVisibility(group)
       })
     } catch {
       this.errorTarget.textContent = "Не удалось сохранить. Попробуйте ещё раз."
