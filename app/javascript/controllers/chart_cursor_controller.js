@@ -146,10 +146,23 @@ export default class extends Controller {
       const price = this.lowValue + (280 - sourceY) / 240 * (this.highValue - this.lowValue)
       tick.textContent = this.formatter.format(price)
     })
-    const first = view.candleAt(0, this.dates.length)
-    const last = view.candleAt(900 - 1e-7, this.dates.length)
-    this.dateStartTarget.textContent = this.dates[first]
-    this.dateEndTarget.textContent = this.dates[last]
+    // Horizontal levels continue through the empty space after the latest candle.
+    this.pricePlotTarget.querySelectorAll(".chart-level").forEach(line => {
+      line.setAttribute("x1", view.sourceX(0))
+      line.setAttribute("x2", view.sourceX(900))
+    })
+    this.pricePlotTarget.querySelectorAll(".chart-zone").forEach(zone => {
+      zone.setAttribute("x", view.sourceX(0))
+      zone.setAttribute("width", view.width)
+    })
+    const visible = view.visibleCandles
+    this.dateStartTarget.textContent = visible ? this.dates[visible.first] : ""
+    this.dateEndTarget.textContent = visible ? this.dates[visible.last] : ""
+    if (visible) {
+      const endX = Math.min(900, view.screenX((visible.last + 1) / this.dates.length * 900))
+      this.dateEndTarget.setAttribute("x", endX)
+      if (endX < 160) this.dateStartTarget.textContent = ""
+    }
     this.renderCurrentPrice()
   }
 
@@ -182,7 +195,17 @@ export default class extends Controller {
 
     // Candles have equal spacing; use their dates rather than interpolating calendar days.
     const step = 900 / this.dates.length
-    const index = this.viewport.candleAt(x, this.dates.length)
+    const index = this.viewport.candleUnder(x)
+    const hasCandle = index !== null
+    ;[this.verticalTarget, this.dateLabelTarget, this.dateTarget].forEach(target => {
+      target.setAttribute("display", hasCandle ? "inline" : "none")
+    })
+    this.selectedBar?.classList.remove("selected")
+    if (!hasCandle) {
+      this.selectedBar = null
+      this.volumeTarget.textContent = ""
+      return
+    }
     const candleX = Math.max(0, Math.min(900, this.viewport.screenX((index + 0.5) * step)))
     this.volumeTarget.textContent = `Объём: ${this.formatter.format(Number(this.volumes[index]))} лот.`
     this.selectedBar?.classList.remove("selected")

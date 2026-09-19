@@ -25,16 +25,19 @@ test("pan follows the pointer with matching screen and data coordinates", () => 
   close(view.sourceY(view.screenY(y)), y)
 })
 
-test("panning is bounded by loaded history and cannot lose the plot", () => {
+test("panning keeps the history start and price bounds but allows unlimited future space", () => {
   const view = new ChartViewport(100)
   view.zoom(4)
   view.pan(100000, 100000)
   close(view.sourceX(0), 0)
   close(view.sourceY(40), 40)
   view.pan(-100000, -100000)
-  close(view.sourceX(900), 900)
+  assert.ok(view.sourceX(0) > 900)
   close(view.sourceY(280), 280)
-  assert.equal(view.candleAt(900, 100), 99)
+  assert.equal(view.visibleCandles, null)
+  assert.equal(view.candleUnder(900), null)
+  view.reset()
+  assert.equal(view.full, true)
 })
 
 test("volume-area zoom changes time only", () => {
@@ -159,4 +162,33 @@ test("missing or invalid quotes do not become zero-price markers", () => {
   for (const price of [null, undefined, "", 0, -1, "invalid", Infinity]) {
     assert.equal(view.priceMarker(price, 100, 300), null)
   }
+})
+
+
+test("future space keeps zoom anchored and does not repeat the last candle under the cursor", () => {
+  const view = new ChartViewport(100)
+  view.showFrom(80)
+  view.pan(-300)
+  close(view.screenX(900), 600)
+  assert.equal(view.candleUnder(590), 99)
+  assert.equal(view.candleUnder(700), null)
+  assert.equal(view.visibleCandles.last, 99)
+  const anchor = view.sourceX(750)
+  view.zoom(1.5, 750, 160, false)
+  close(view.sourceX(750), anchor)
+  assert.equal(view.candleUnder(750), null)
+  for (let i = 0; i < 10; i++) view.pan(-900)
+  assert.equal(view.visibleCandles, null)
+  assert.equal(view.candleUnder(0), null)
+  assert.equal(view.full, false)
+  view.pan(1e6)
+  close(view.left, 0)
+})
+
+test("current quote remains on the same price when the time window is moved into empty space", () => {
+  const view = new ChartViewport(100)
+  const marker = view.priceMarker(200, 100, 300)
+  view.pan(-10000)
+  assert.deepEqual(view.priceMarker(200, 100, 300), marker)
+  assert.equal(view.full, false)
 })

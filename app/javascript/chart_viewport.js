@@ -18,7 +18,7 @@ export class ChartViewport {
   }
 
   fitCandles(bounds) {
-    if (!bounds.length) return
+    if (!bounds.length || this.left >= 900) return
     const first = this.candleAt(0, bounds.length)
     const last = this.candleAt(900 - 1e-7, bounds.length)
     const visible = bounds.slice(first, last + 1)
@@ -32,7 +32,7 @@ export class ChartViewport {
 
   get scaleX() { return 900 / this.width }
   get scaleY() { return 240 / this.height }
-  get full() { return this.width === 900 && this.height === 240 }
+  get full() { return this.left === 0 && this.top === 40 && this.width === 900 && this.height === 240 }
   get maximum() { return this.scaleX >= this.maxXZoom - 1e-8 && this.scaleY >= 20 - 1e-8 }
   sourceX(x) { return this.left + x / this.scaleX }
   sourceY(y) { return this.top + (y - 40) / this.scaleY }
@@ -43,17 +43,27 @@ export class ChartViewport {
     const anchorX = this.sourceX(x), anchorY = this.sourceY(y)
     this.width = clamp(this.width / factor, 900 / this.maxXZoom, 900)
     if (vertical) this.height = clamp(this.height / factor, 12, 240)
-    this.left = clamp(anchorX - x / this.scaleX, 0, 900 - this.width)
+    this.left = Math.max(0, anchorX - x / this.scaleX)
     this.top = clamp(anchorY - (y - 40) / this.scaleY, 40, 280 - this.height)
   }
 
   pan(dx, dy = 0) {
-    this.left = clamp(this.left - dx / this.scaleX, 0, 900 - this.width)
+    this.left = Math.max(0, this.left - dx / this.scaleX)
     this.top = clamp(this.top - dy / this.scaleY, 40, 280 - this.height)
   }
 
   candleAt(x, count) {
     return clamp(Math.floor(this.sourceX(x) / 900 * count), 0, count - 1)
+  }
+
+  candleUnder(x) {
+    const index = Math.floor(this.sourceX(x) / 900 * this.count)
+    return index >= 0 && index < this.count ? index : null
+  }
+
+  get visibleCandles() {
+    if (!this.count || this.left >= 900) return null
+    return { first: this.candleAt(0, this.count), last: this.candleAt(900 - 1e-7, this.count) }
   }
 
   priceMarker(price, low, high) {
