@@ -23,15 +23,21 @@
         max_volume = @candles.map(&:volume).max || 0
         y = ->(value) { 280 - (value.to_f - low) / range * 240 }
       %>
-      <svg class="chart" viewBox="0 0 1000 460" role="img" aria-label="<%= @timeframe == 'week' ? 'Недельные' : 'Дневные' %> свечи, объёмы и все активные уровни" data-timeframe="<%= @timeframe %>"
-        data-controller="chart-cursor" data-chart-cursor-low-value="<%= low %>" data-chart-cursor-high-value="<%= high %>"
-        data-action="pointermove->chart-cursor#move pointerleave->chart-cursor#hide pointercancel->chart-cursor#hide scroll@window->chart-cursor#hide resize@window->chart-cursor#hide turbo:before-cache@document->chart-cursor#hide">
+      <div class="chart-interaction" data-controller="chart-cursor" data-chart-cursor-low-value="<%= low %>" data-chart-cursor-high-value="<%= high %>" data-action="turbo:before-cache@document->chart-cursor#reset">
+      <svg class="chart" viewBox="0 24 1000 436" role="img" tabindex="0" aria-label="<%= @timeframe == 'week' ? 'Недельные' : 'Дневные' %> свечи, объёмы и все активные уровни" data-timeframe="<%= @timeframe %>" data-chart-cursor-target="svg"
+        data-action="pointerdown->chart-cursor#startDrag pointermove->chart-cursor#move pointerup->chart-cursor#finishDrag pointercancel->chart-cursor#finishDrag lostpointercapture->chart-cursor#finishDrag pointerleave->chart-cursor#hide dblclick->chart-cursor#reset keydown->chart-cursor#key scroll@window->chart-cursor#hide resize@window->chart-cursor#hide">
+        <defs>
+          <clipPath id="chart-price-clip-<%= @instrument.id %>-<%= @timeframe %>"><rect x="0" y="40" width="900" height="240"/></clipPath>
+          <clipPath id="chart-volume-clip-<%= @instrument.id %>-<%= @timeframe %>"><rect x="0" y="320" width="900" height="80"/></clipPath>
+        </defs>
         <rect x="0" y="40" width="900" height="360" fill="transparent" pointer-events="all"/>
         <% 5.times do |i| %>
           <% price = low + range * i / 4 %>
           <line x1="0" x2="910" y1="<%= y.call(price) %>" y2="<%= y.call(price) %>" stroke="#e8edf2"/>
-          <text x="918" y="<%= y.call(price) + 4 %>" fill="#718096" font-size="11"><%= number_with_precision(price, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %></text>
+          <text data-chart-cursor-target="priceTick" data-y="<%= y.call(price) %>" x="918" y="<%= y.call(price) + 4 %>" fill="#718096" font-size="11"><%= number_with_precision(price, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %></text>
         <% end %>
+        <g clip-path="url(#chart-price-clip-<%= @instrument.id %>-<%= @timeframe %>)">
+        <g class="chart-price-content" data-chart-cursor-target="pricePlot">
         <% @candles.each_with_index do |candle, i| %>
           <% x = i * step + step / 2; color = candle.close >= candle.open ? '#168779' : '#cb6b64' %>
           <g class="chart-candle" data-time="<%= candle.time.iso8601 %>" data-date="<%= candle.time.strftime('%d.%m.%Y') %>" data-volume="<%= candle.volume %>">
@@ -56,19 +62,23 @@
             <title><%= level.timeframe == 'week' ? '1W' : '1D' %> · <%= level.side == 'support' ? 'Поддержка' : 'Сопротивление' %> · <%= number_with_precision(level.price, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %></title>
           </line>
         <% end %>
+        </g></g>
         <text x="0" y="307" fill="#718096" font-size="11">Объём свечи, лоты</text>
         <line x1="0" x2="910" y1="320" y2="320" stroke="#e8edf2"/>
         <line x1="0" x2="910" y1="400" y2="400" stroke="#e8edf2"/>
         <text x="918" y="324" fill="#718096" font-size="10"><%= number_with_delimiter(max_volume, delimiter: ' ') %></text>
         <text x="918" y="404" fill="#718096" font-size="10">0</text>
+        <g clip-path="url(#chart-volume-clip-<%= @instrument.id %>-<%= @timeframe %>)">
+        <g data-chart-cursor-target="volumePlot">
         <% @candles.each_with_index do |candle, i| %>
           <% x = i * step + step / 2; height = max_volume.positive? ? candle.volume.to_f / max_volume * 80 : 0 %>
           <rect class="chart-volume" data-volume="<%= candle.volume %>" x="<%= x - [step * 0.3, 8].min %>" y="<%= 400 - height %>" width="<%= [step * 0.6, 16].min %>" height="<%= height %>" fill="<%= candle.close >= candle.open ? '#168779' : '#cb6b64' %>">
             <title><%= candle.time.strftime('%d.%m.%Y') %> · Объём <%= number_with_delimiter(candle.volume, delimiter: ' ') %> лот. · цвет по направлению свечи, не сторона сделок</title>
           </rect>
         <% end %>
-        <text x="0" y="435" fill="#718096" font-size="12"><%= @candles.first.time.strftime('%d.%m.%Y') %></text>
-        <text x="900" y="435" text-anchor="end" fill="#718096" font-size="12"><%= @candles.last.time.strftime('%d.%m.%Y') %></text>
+        </g></g>
+        <text data-chart-cursor-target="dateStart" x="0" y="435" fill="#718096" font-size="12"><%= @candles.first.time.strftime('%d.%m.%Y') %></text>
+        <text data-chart-cursor-target="dateEnd" x="900" y="435" text-anchor="end" fill="#718096" font-size="12"><%= @candles.last.time.strftime('%d.%m.%Y') %></text>
         <g class="chart-cursor" data-chart-cursor-target="cursor" visibility="hidden" pointer-events="none" aria-hidden="true">
           <text data-chart-cursor-target="volume" x="230" y="307" fill="#34515e" font-size="11"></text>
           <g data-chart-cursor-target="horizontal">
@@ -81,8 +91,9 @@
           <text data-chart-cursor-target="date" x="46" y="432" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="11"></text>
         </g>
       </svg>
-      <p class="muted chart-trend">EMA: <%= @ema_series.keys.each_with_index.map { |period, index| "#{period} — #{['сплошная', 'штриховая', 'точечная'][index]}" }.join(' · ') %>. <%= trend_description(@trend) %>. EMA — контекст, не фильтр сигналов; расчёт по завершённым свечам, старт от SMA.</p>
-      <div class="chart-legend"><span class="daily-level">Уровни 1D</span><span class="weekly-level">Уровни 1W</span><span>Показаны все активные уровни и зоны: <%= @levels.size %>. Заливка — границы зоны, пунктир — её середина. Цена и тип — при наведении. Столбцы — объём дня или недели; цвет соответствует направлению свечи, а не покупкам/продажам.</span></div>
+      </div>
+      <p class="muted chart-trend">EMA: <%= @ema_series.keys.each_with_index.map { |period, index| "#{period} — #{['сплошная', 'штриховая', 'точечная'][index]}" }.join(' · ') %>. <%= trend_description(@trend) %>.</p>
+      <div class="chart-legend"><span class="daily-level">Уровни 1D</span><span class="weekly-level">Уровни 1W</span><span>Активные уровни и зоны: <%= @levels.size %>.</span></div>
     <% else %>
       <div class="empty compact"><p><%= @timeframe == 'week' ? 'Недельные' : 'Дневные' %> свечи ещё не загружены. Нажмите «Обновить историю» и обновите страницу после загрузки.</p></div>
     <% end %>

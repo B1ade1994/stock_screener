@@ -99,4 +99,17 @@ RSpec.describe "Instrument chart", type: :request do
     end
   end
 
+  it "keeps plot clipping separate from the stationary scales and cursor" do
+    candle("day", 1.day.ago)
+    get instrument_path(instrument)
+    page = Nokogiri::HTML(response.body)
+    svg = page.at_css("svg.chart")
+    expect(svg.css("defs > clippath").size).to eq(2)
+    expect(svg.at_css("[data-chart-cursor-target='pricePlot']").parent["clip-path"]).to include("chart-price-clip")
+    expect(svg.at_css("[data-chart-cursor-target='volumePlot']").parent["clip-path"]).to include("chart-volume-clip")
+    expect(svg.css("[data-chart-cursor-target='priceTick']").size).to eq(5)
+    expect(svg.at_css("[data-chart-cursor-target='cursor']").parent).to eq(svg)
+    expect(page.css(".chart-controls, #chart-navigation-help")).to be_empty
+  end
+
 end
