@@ -27,6 +27,13 @@
     <small class="autosave-error" role="alert" data-autosave-feedback><%= local_assigns[:save_error] %></small>
   </td>
   <td class="row-order">
+    <div class="instrument-row-actions">
     <button type="button" class="drag-handle" aria-label="Переместить <%= instrument.ticker %>" title="Перетащите строку; с клавиатуры — клавиши вверх/вниз" data-action="pointerdown->reorder#start keydown->reorder#key"><span aria-hidden="true">⠿</span></button>
+    <%= button_to instrument_path(instrument), method: :delete, class: 'instrument-delete-button', title: "Удалить #{instrument.ticker}", aria: { label: "Удалить #{instrument.ticker} из наблюдения" }, form: { data: { turbo_frame: 'dashboard', turbo_confirm: "Удалить #{instrument.ticker}, его свечи, уровни и историю сигналов?" } } do %>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M5 6l1 14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-14M10 10v7M14 10v7"/>
+      </svg>
+    <% end %>
+    </div>
   </td>
 </tr>

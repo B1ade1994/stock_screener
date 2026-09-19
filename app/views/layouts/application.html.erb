@@ -11,13 +11,26 @@
     <aside class="sidebar">
       <a class="brand" href="/"><span class="brand-icon">⌁</span><span>stock<span class="muted">screener</span></span></a>
       <div class="nav-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
-      <%= link_to "◉  Обзор рынка", root_path, class: "nav-link" %>
+      <%= link_to "Акции", root_path, class: "nav-link workspace-link", aria: { current: (controller_name == "dashboard" && @tab == "stocks" ? "page" : nil) } %>
+      <%= link_to "Лента событий", root_path(tab: "events"), class: "nav-link workspace-link", aria: { current: (controller_name == "dashboard" && @tab == "events" ? "page" : nil) } %>
       <%= link_to "＋  Добавить инструмент", search_instruments_path, class: "nav-link" %>
       <%= link_to "FAQ", guide_path, class: "nav-link guide-link", aria: { current: current_page?(guide_path) ? "page" : nil } %>
       <div class="sidebar-note"><span class="dot"></span> Т-Инвестиции API<br><small>Акции и фьючерсы · Только чтение</small></div>
     </aside>
     <main>
-      <header class="topbar"><span>РЫНОЧНЫЙ РАДАР</span><span>MOEX <span class="separator">/</span> MSK</span></header>
+      <header class="topbar"><span>РЫНОЧНЫЙ РАДАР</span><div class="topbar-actions">
+        <div id="signal-sound" data-turbo-permanent data-controller="signal-sound" data-signal-sound-url-value="<%= latest_signals_path %>">
+          <button type="button" class="sound-toggle" data-signal-sound-target="button" data-action="signal-sound#toggle" aria-describedby="signal-sound-status" aria-pressed="false" title="Включить звук новых событий" aria-label="Включить звук">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4Z"/>
+              <g class="sound-waves"><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></g>
+              <g class="sound-muted"><path d="m16 9 5 6m0-6-5 6"/></g>
+            </svg>
+          </button>
+          <small id="signal-sound-status" class="sound-status" data-signal-sound-target="status" role="status" hidden></small>
+        </div>
+        <span>MOEX <span class="separator">/</span> MSK</span>
+      </div></header>
       <% flash.each do |type, text| %><div class="flash <%= type %>" role="status"><%= text %></div><% end %>
       <%= yield %>
       <footer>Объёмы — минутные события. Уровни — дневной и недельный контекст.</footer>

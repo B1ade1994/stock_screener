@@ -6,14 +6,17 @@
     <div class="stat"><span>Сильные уровни</span><strong>1D <small>и</small> 1W</strong></div>
     <div class="stat"><span>Поток данных</span><strong class="connection"><span class="dot <%= @collector&.live? ? '' : 'offline' %>"></span><%= @collector&.live? ? 'Подключён' : 'Ожидание' %></strong><small><%= @collector&.heartbeat_at && @collector.heartbeat_at > 20.seconds.ago ? @collector.message : 'Сборщик не подключён' %></small></div>
   </div>
+  <% if @tab == "stocks" %>
   <section class="panel"><div class="panel-heading"><h2>Инструменты <span class="count"><%= @instruments.size %></span></h2><span class="muted">Настройки сохраняются автоматически</span></div>
     <% if @instruments.empty? %>
       <div class="empty"><div class="empty-icon">⌁</div><h3>Начните с первой бумаги</h3><p>Введите тикер акции или конкретного фьючерсного контракта.<br>Выберите инструмент и включите нужные сигналы.</p><%= link_to "Найти инструмент →", search_instruments_path, class: "button primary", data: { turbo_frame: "_top" } %></div>
     <% else %>
-      <div class="table-scroll" data-controller="reorder" data-action="pointermove@window->reorder#drag pointerup@window->reorder#drop pointercancel@window->reorder#cancel keydown.esc@window->reorder#cancel"><span class="visually-hidden" role="status" data-reorder-target="status"></span><table><thead><tr><th>Инструмент</th><th>Последняя цена</th><th>Наблюдать</th><th>Объём · 1 мин</th><th>Уровни · D / W</th><th>Данные</th><th class="order-heading">Порядок</th></tr></thead><tbody id="instruments-list" data-reorder-target="list">
+      <div class="table-scroll" data-controller="reorder" data-action="pointermove@window->reorder#drag pointerup@window->reorder#drop pointercancel@window->reorder#cancel keydown.esc@window->reorder#cancel"><span class="visually-hidden" role="status" data-reorder-target="status"></span><table><thead><tr><th>Инструмент</th><th>Последняя цена</th><th>Наблюдать</th><th>Объём · 1 мин</th><th>Уровни · D / W</th><th>Данные</th><th class="order-heading">Действия</th></tr></thead><tbody id="instruments-list" data-reorder-target="list">
       <%= render partial: "instruments/row", collection: @instruments, as: :instrument %>
       </tbody></table></div>
     <% end %>
   </section>
+  <% else %>
   <section class="panel"><div class="panel-heading"><div><h2>Лента событий</h2><span class="muted">Причина срабатывания сохраняется вместе с сигналом</span></div><span class="badge">Последние 50</span></div><%= render "signals/list", signals: @signals %></section>
+  <% end %>
 <% end %>

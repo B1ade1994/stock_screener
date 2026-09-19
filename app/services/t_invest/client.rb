@@ -22,7 +22,12 @@ module TInvest
       raise Error, "Соединение с API недоступно (#{e.class.name})"
     end
     def search(query)
-      call("InstrumentsService/FindInstrument", { query: query }).fetch("instruments", []).select { |i| %w[share futures].include?(i["instrumentType"]) }
+      instruments = call("InstrumentsService/FindInstrument", { query: query }).fetch("instruments", []).select do |instrument|
+        instrument["instrumentType"] == "futures" ||
+          (instrument["instrumentType"] == "share" && instrument["classCode"] == "TQBR")
+      end
+      shares, futures = instruments.partition { |instrument| instrument["instrumentType"] == "share" }
+      shares + futures
     end
     def instrument(uid)
       data = call("InstrumentsService/GetInstrumentBy", { idType: "INSTRUMENT_ID_TYPE_UID", id: uid }).fetch("instrument")

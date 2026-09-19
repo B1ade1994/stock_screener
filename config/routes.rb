@@ -1,6 +1,8 @@
 Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
   root "dashboard#index"
+  get "signals/latest", to: "signals#latest", as: :latest_signals
+  resources :signals, only: :destroy
   get "guide", to: "guide#show", as: :guide
   resources :instruments, only: [:create, :update, :destroy, :show] do
     get :search, on: :collection

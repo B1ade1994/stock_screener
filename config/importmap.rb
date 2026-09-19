@@ -9,3 +9,5 @@ pin_all_from "app/javascript/controllers", under: "controllers"
 pin "chart_viewport", to: "chart_viewport.js"
 
 pin "chart_level_filter", to: "chart_level_filter.js"
+
+pin "signal_sound", to: "signal_sound.js"

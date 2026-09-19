@@ -60,7 +60,7 @@ class InstrumentsController < ApplicationController
 
   def destroy
     Instrument.find(params[:id]).destroy!
-    redirect_to root_path, notice: "Инструмент удалён"
+    redirect_to root_path, notice: "Инструмент удалён", status: :see_other
   end
   def refresh
     RefreshHistoryJob.perform_later(params[:id])

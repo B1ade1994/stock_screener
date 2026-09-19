@@ -72,4 +72,29 @@ RSpec.describe "Instrument screens", type: :request do
     expect(response).to have_http_status(:ok)
     expect(Nokogiri::HTML(response.body).css("svg.chart .chart-candle rect").size).to eq(2)
   end
+  it "provides a confirmed delete action in the watchlist and returns the updated dashboard" do
+    other = create_instrument(ticker: "KEEP")
+    instrument.candles.create!(timeframe: "day", time: 1.day.ago, open: 100, high: 101, low: 99, close: 100, volume: 10)
+    get root_path
+    row = Nokogiri::HTML(response.body).at_css("#instrument_#{instrument.id}")
+    button = row.at_css("button.instrument-delete-button")
+    expect(button["aria-label"]).to eq("Удалить TEST из наблюдения")
+    form = button.ancestors("form").first
+    expect(form["action"]).to eq(instrument_path(instrument))
+    expect(form["data-turbo-confirm"]).to include("TEST", "свечи", "уровни", "сигналов")
+    expect(form["data-turbo-frame"]).to eq("dashboard")
+    expect(form.at_css("input[name='_method']")["value"]).to eq("delete")
+
+    delete instrument_path(instrument), headers: { "Turbo-Frame" => "dashboard" }
+    expect(response).to have_http_status(:see_other)
+    expect(Instrument.exists?(instrument.id)).to be false
+    expect(Candle.where(instrument_id: instrument.id)).to be_empty
+    expect(Instrument.exists?(other.id)).to be true
+    follow_redirect!
+    page = Nokogiri::HTML(response.body)
+    expect(page.at_css("turbo-frame#dashboard")).to be_present
+    expect(page.at_css("#instrument_#{instrument.id}")).to be_nil
+    expect(page.at_css("#instrument_#{other.id}")).to be_present
+  end
+
 end
