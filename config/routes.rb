@@ -6,7 +6,7 @@ Rails.application.routes.draw do
     get :search, on: :collection
     post :refresh, on: :member
     patch :move, on: :member
-    resources :price_levels, only: [:create, :destroy]
+    resources :price_levels, only: [:create, :update, :destroy]
   end
   namespace :internal do
     get :watchlist, to: "feed#watchlist"

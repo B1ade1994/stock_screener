@@ -1,7 +1,7 @@
 <section class="panel">
   <div class="panel-heading"><div>
     <h2>Уровни поддержки и сопротивления</h2>
-    <p class="muted">Зоны из тел и теней свечей. Повторные независимые подходы подтверждают зону; одиночная сильная реакция создаёт предварительную. Баллы учитывают объём, отскок в ATR и давность; это сравнительная оценка, а не вероятность пробоя.</p>
+    <p class="muted">Зоны из тел и теней свечей. Повторные независимые подходы подтверждают зону; одиночная сильная реакция создаёт предварительную. Баллы учитывают объём, отскок в ATR и давность; сила сравнивается среди подтверждённых зон одного периода этой бумаги. Это не вероятность пробоя.</p>
     <p class="muted">Объём × — среднее отношение объёма свечи касания к медиане 20 предыдущих свечей того же периода; для дней отдельно сравниваются будни и выходные (МСК). Праздники и сокращённые сессии пока не выделяются. Объём всей свечи не равен объёму сделок на цене уровня.</p>
     <% if @instrument.last_price&.positive? %>
       <p class="muted">Расстояние от последней цены <%= number_with_precision(@instrument.last_price, precision: 4, strip_insignificant_zeros: true) %><% if @instrument.last_trade_at %> · сделка <%= @instrument.last_trade_at.strftime('%d.%m.%Y %H:%M') %><% end %>. Близость и историческая значимость оцениваются отдельно.</p>
@@ -11,10 +11,10 @@
     <div class="empty compact"><p>Подходящих уровней пока нет. Можно добавить свой.</p></div>
   <% else %>
     <div class="table-scroll"><table class="levels-table"><thead><tr>
-      <th>Уровень / источник</th><th>Период</th><th>Тип / состояние</th><th>Касания</th><th>Объём ×</th><th>Отскок</th><th>Последнее касание</th><th>До уровня</th><th>Баллы</th><th></th>
+      <th>Уровень / источник</th><th>Период</th><th>Тип / состояние</th><th>Касания</th><th>Объём ×</th><th>Отскок</th><th>Последнее касание</th><th>До уровня</th><th>Сила / баллы</th><th></th>
     </tr></thead><tbody>
       <% @levels.each do |level| %>
-        <% assessment = level.assessment; distance = level.distance_percent(@instrument.last_price) %>
+        <% assessment = level.assessment; distance = level.distance_percent(@instrument.last_price); strength = @level_strength.call(level) %>
         <tr data-price-level-id="<%= level.id %>">
           <td class="numeric"><%= number_with_precision(level.price, precision: 4, strip_insignificant_zeros: true) %><small><%= level.source == 'manual' ? 'Вручную' : 'Автоматический' %><% if level.lower_price && level.upper_price %><br><%= number_with_precision(level.lower_bound, precision: 2) %>–<%= number_with_precision(level.upper_bound, precision: 2) %><% end %></small></td>
           <td><span class="badge"><%= level.timeframe == 'day' ? '1D' : '1W' %></span></td>
@@ -24,8 +24,22 @@
           <td class="numeric" title="Меньшее благоприятное удаление двух следующих закрытий; нормировано на ATR14 свечи касания"><%= assessment['reaction_atr'] ? "#{number_with_precision(assessment['reaction_atr'], precision: 2)} ATR" : assessment['reaction_percent'] ? "#{number_with_precision(assessment['reaction_percent'], precision: 2)}%" : '—'  %></td>
           <td><%= assessment['last_touch_at'] ? Time.iso8601(assessment['last_touch_at']).in_time_zone.strftime('%d.%m.%Y') : '—' %></td>
           <td class="numeric"><%= distance ? "#{distance.positive? ? '+' : ''}#{number_with_precision(distance, precision: 2)}%" : '—' %></td>
-          <td class="numeric"><%= assessment['score'] ? number_with_precision(assessment['score'], precision: 2) : '—' %><small><%= level.source == 'manual' ? 'Ручной уровень' : assessment.empty? ? 'Нет текущей оценки' : "На #{Time.iso8601(assessment['as_of']).in_time_zone.strftime('%d.%m.%Y')}" %></small></td>
-          <td><%= button_to 'Убрать', instrument_price_level_path(@instrument, level), method: :delete, class: 'text-button' %></td>
+          <td class="numeric">
+            <span class="level-strength" data-strength="<%= strength.grade || 'unrated' %>" title="<%= strength.explanation %>">
+              <% if strength.grade %><span class="strength-bars" aria-hidden="true"><% 3.times do |index| %><i class="<%= index < strength.grade ? 'filled' : '' %>"></i><% end %></span><% end %>
+              <%= strength.label %>
+            </span>
+            <small><%= assessment['score'] ? "#{number_with_precision(assessment['score'], precision: 2)} балла" : '—' %><% if strength.grade %> · среди <%= level.timeframe == 'day' ? '1D' : '1W' %><% end %></small>
+            <% if assessment['as_of'].present? %><small>На <%= Time.iso8601(assessment['as_of']).in_time_zone.strftime('%d.%m.%Y') %></small><% end %>
+          </td>
+          <td><div class="level-actions">
+            <%= render "price_levels/visibility", instrument: @instrument, level: level %>
+            <%= button_to instrument_price_level_path(@instrument, level), method: :delete, class: 'level-delete-button', title: 'Удалить уровень', aria: { label: 'Удалить уровень' } do %>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M5 6l1 14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-14M10 10v7M14 10v7"/>
+              </svg>
+            <% end %>
+          </div></td>
         </tr>
       <% end %>
     </tbody></table></div>

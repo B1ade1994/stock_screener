@@ -112,4 +112,18 @@ RSpec.describe "Instrument chart", type: :request do
     expect(page.css(".chart-controls, #chart-navigation-help")).to be_empty
   end
 
+  it "shows relative strength, its score and matching chart tooltip" do
+    candle("day", 1.day.ago)
+    levels = [1, 2, 5].map do |score|
+      instrument.price_levels.create!(price: 100 + score, timeframe: "day", side: "resistance", source: "automatic", touches: 2,
+        assessment: { version: Detectors::Levels::VERSION, score: score, as_of: Time.current.iso8601 })
+    end
+    get instrument_path(instrument)
+    page = Nokogiri::HTML(response.body)
+    expect(page.css(".level-strength").map { |node| node["data-strength"] }).to eq(%w[1 2 3])
+    row = page.at_css("tr[data-price-level-id='#{levels.last.id}']")
+    expect(row.text).to include("Высокая", "5.00", "среди 1D")
+    expect(page.at_css(".chart-level[data-level-id='#{levels.last.id}'] title").text).to include("Сила: Высокая")
+  end
+
 end

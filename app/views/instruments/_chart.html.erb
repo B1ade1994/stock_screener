@@ -53,14 +53,16 @@
           <% end %>
         <% end %>
         <% @levels.each do |level| %>
+          <g data-chart-level-id="<%= level.id %>" display="<%= level.chart_visible? ? 'inline' : 'none' %>">
           <% if level.upper_bound > level.lower_bound %>
             <rect class="chart-zone" data-level-id="<%= level.id %>" x="0" width="900" y="<%= y.call(level.upper_bound) %>" height="<%= y.call(level.lower_bound) - y.call(level.upper_bound) %>" fill="<%= level.timeframe == 'week' ? '#9363b8' : '#658bb4' %>" fill-opacity="<%= level.status == 'candidate' ? '0.05' : '0.12' %>">
               <title><%= number_with_precision(level.lower_bound, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %>–<%= number_with_precision(level.upper_bound, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %> · <%= level_status_label(level.status) %></title>
             </rect>
           <% end %>
           <line class="chart-level" data-level-id="<%= level.id %>" x1="0" x2="900" y1="<%= y.call(level.price) %>" y2="<%= y.call(level.price) %>" stroke="<%= level.timeframe == 'week' ? '#9363b8' : '#658bb4' %>" stroke-width="1.5" stroke-dasharray="<%= level.timeframe == 'week' ? '9 4' : '4 4' %>">
-            <title><%= level.timeframe == 'week' ? '1W' : '1D' %> · <%= level.side == 'support' ? 'Поддержка' : 'Сопротивление' %> · <%= number_with_precision(level.price, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %></title>
+            <title><%= level.timeframe == 'week' ? '1W' : '1D' %> · <%= level.side == 'support' ? 'Поддержка' : 'Сопротивление' %> · <%= number_with_precision(level.price, precision: 1, strip_insignificant_zeros: true, separator: ',', delimiter: ' ') %> · Сила: <%= @level_strength.call(level).label %></title>
           </line>
+          </g>
         <% end %>
         </g></g>
         <text x="0" y="307" fill="#718096" font-size="11">Объём свечи, лоты</text>

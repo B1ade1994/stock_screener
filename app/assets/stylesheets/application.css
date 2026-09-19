@@ -33,3 +33,20 @@ td .autosave-error { color: #a4614b; max-width: 240px; }
 .chart-interaction .chart.is-panning { cursor: grabbing; }
 .chart-price-content line, .chart-price-content polyline, .chart-volume { vector-effect: non-scaling-stroke; }
 .chart-interaction .chart:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+.level-actions { display: flex; align-items: center; gap: 12px; }
+.level-visibility-button, .level-delete-button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--teal); cursor: pointer; }
+.level-visibility-button[aria-pressed="false"] { color: var(--muted); }
+.level-visibility-button:hover { background: #edf7f4; }
+.level-visibility-button:disabled { opacity: .45; cursor: wait; }
+
+.level-delete-button { color: #9c7770; }
+.level-delete-button:hover { background: #f9eeea; color: #a4614b; }
+
+.level-strength { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.strength-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 13px; }
+.strength-bars i { display: block; width: 4px; height: 5px; border-radius: 1px; background: var(--line); }
+.strength-bars i:nth-child(2) { height: 9px; }
+.strength-bars i:nth-child(3) { height: 13px; }
+.strength-bars i.filled { background: var(--teal); }
+.level-strength[data-strength="unrated"] { color: var(--muted); }

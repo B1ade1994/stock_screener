@@ -44,4 +44,10 @@ RSpec.describe LevelBuilder do
     expect(level.distance_percent(0)).to be_nil
     expect(level.distance_percent(100)).to eq(20)
   end
+  it "preserves chart visibility independently from activity during history rebuild" do
+    level = instrument.price_levels.create!(price: 109, timeframe: "day", side: "resistance", source: "automatic", chart_visible: false)
+    rebuild
+    expect(level.reload).to have_attributes(chart_visible: false, active: true, touches: 2, price: 110)
+  end
+
 end
