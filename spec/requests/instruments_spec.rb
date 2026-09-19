@@ -70,6 +70,6 @@ RSpec.describe "Instrument screens", type: :request do
 
     get instrument_path(instrument)
     expect(response).to have_http_status(:ok)
-    expect(Nokogiri::HTML(response.body).css("svg.chart rect").size).to eq(2)
+    expect(Nokogiri::HTML(response.body).css("svg.chart .chart-candle rect").size).to eq(2)
   end
 end

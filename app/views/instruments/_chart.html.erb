@@ -1,0 +1,60 @@
+<%= turbo_frame_tag "instrument-chart", data: { turbo_action: "advance" } do %>
+  <section class="panel padded">
+    <div class="panel-heading flush chart-heading">
+      <div>
+        <h2><%= @timeframe == 'week' ? 'Недельный контекст' : 'Дневной контекст' %></h2>
+        <span class="muted">Все загруженные завершённые свечи: <%= @candles.size %> · цены <%= @instrument.future? ? 'в пунктах' : @instrument.currency.upcase %></span>
+      </div>
+      <nav class="chart-periods" aria-label="Период свечей">
+        <% { 'day' => 'День · 1D', 'week' => 'Неделя · 1W' }.each do |timeframe, label| %>
+          <%= link_to label, instrument_path(@instrument, timeframe: timeframe), class: "button #{@timeframe == timeframe ? 'primary' : 'secondary'}", aria: { current: @timeframe == timeframe ? 'page' : nil } %>
+        <% end %>
+      </nav>
+    </div>
+    <% if @candles.any? %>
+      <%
+        prices = @candles.flat_map { |candle| [candle.low.to_f, candle.high.to_f] } + @levels.map { |level| level.price.to_f }
+        minimum, maximum = prices.minmax
+        padding = [(maximum - minimum) * 0.04, maximum.abs * 0.001, 0.000000001].max
+        low = minimum - padding
+        high = maximum + padding
+        range = high - low
+        step = 900.0 / @candles.size
+        y = ->(value) { 280 - (value.to_f - low) / range * 240 }
+      %>
+      <svg class="chart" viewBox="0 0 1000 330" role="img" aria-label="<%= @timeframe == 'week' ? 'Недельные' : 'Дневные' %> свечи и все активные уровни" data-timeframe="<%= @timeframe %>"
+        data-controller="chart-cursor" data-chart-cursor-low-value="<%= low %>" data-chart-cursor-high-value="<%= high %>"
+        data-action="pointermove->chart-cursor#move pointerleave->chart-cursor#hide pointercancel->chart-cursor#hide scroll@window->chart-cursor#hide resize@window->chart-cursor#hide turbo:before-cache@document->chart-cursor#hide">
+        <rect x="0" y="40" width="900" height="240" fill="transparent" pointer-events="all"/>
+        <% 5.times do |i| %>
+          <% price = low + range * i / 4 %>
+          <line x1="0" x2="910" y1="<%= y.call(price) %>" y2="<%= y.call(price) %>" stroke="#e8edf2"/>
+          <text x="918" y="<%= y.call(price) + 4 %>" fill="#718096" font-size="11"><%= number_with_precision(price, precision: 4, strip_insignificant_zeros: true) %></text>
+        <% end %>
+        <% @candles.each_with_index do |candle, i| %>
+          <% x = i * step + step / 2; color = candle.close >= candle.open ? '#168779' : '#cb6b64' %>
+          <g class="chart-candle" data-time="<%= candle.time.iso8601 %>">
+            <title><%= candle.time.strftime('%d.%m.%Y') %> · O <%= candle.open %> H <%= candle.high %> L <%= candle.low %> C <%= candle.close %></title>
+            <line x1="<%= x %>" x2="<%= x %>" y1="<%= y.call(candle.high) %>" y2="<%= y.call(candle.low) %>" stroke="<%= color %>"/>
+            <rect x="<%= x - [step * 0.3, 8].min %>" y="<%= [y.call(candle.open), y.call(candle.close)].min %>" width="<%= [step * 0.6, 16].min %>" height="<%= [(y.call(candle.open) - y.call(candle.close)).abs, 1].max %>" fill="<%= color %>"/>
+          </g>
+        <% end %>
+        <% @levels.each do |level| %>
+          <line class="chart-level" data-level-id="<%= level.id %>" x1="0" x2="900" y1="<%= y.call(level.price) %>" y2="<%= y.call(level.price) %>" stroke="<%= level.timeframe == 'week' ? '#9363b8' : '#658bb4' %>" stroke-width="1.5" stroke-dasharray="<%= level.timeframe == 'week' ? '9 4' : '4 4' %>">
+            <title><%= level.timeframe == 'week' ? '1W' : '1D' %> · <%= level.side == 'support' ? 'Поддержка' : 'Сопротивление' %> · <%= number_with_precision(level.price, precision: 4, strip_insignificant_zeros: true) %></title>
+          </line>
+        <% end %>
+        <text x="0" y="315" fill="#718096" font-size="12"><%= @candles.first.time.strftime('%d.%m.%Y') %></text>
+        <text x="900" y="315" text-anchor="end" fill="#718096" font-size="12"><%= @candles.last.time.strftime('%d.%m.%Y') %></text>
+        <g class="chart-cursor" data-chart-cursor-target="cursor" visibility="hidden" pointer-events="none" aria-hidden="true">
+          <line data-chart-cursor-target="line" x1="0" x2="912" y1="0" y2="0" stroke="#34515e" stroke-width="1" stroke-dasharray="4 3"/>
+          <rect data-chart-cursor-target="label" x="912" y="-12" width="82" height="24" rx="4" fill="#172e3b"/>
+          <text data-chart-cursor-target="price" x="953" y="0" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="11"></text>
+        </g>
+      </svg>
+      <div class="chart-legend"><span class="daily-level">Уровни 1D</span><span class="weekly-level">Уровни 1W</span><span>Показаны все активные уровни: <%= @levels.size %>. Цена и тип — при наведении на линию.</span></div>
+    <% else %>
+      <div class="empty compact"><p><%= @timeframe == 'week' ? 'Недельные' : 'Дневные' %> свечи ещё не загружены. Нажмите «Обновить историю» и обновите страницу после загрузки.</p></div>
+    <% end %>
+  </section>
+<% end %>

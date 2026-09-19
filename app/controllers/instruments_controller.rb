@@ -18,7 +18,8 @@ class InstrumentsController < ApplicationController
     @instrument = Instrument.find(params[:id])
     @levels = @instrument.price_levels.active.order(:timeframe, :price)
     @signals = @instrument.signals.order(occurred_at: :desc).limit(30)
-    @candles = @instrument.candles.where(timeframe: "day").order(time: :desc).limit(60).to_a.reverse
+    @timeframe = %w[day week].include?(params[:timeframe]) ? params[:timeframe] : "day"
+    @candles = @instrument.candles.where(timeframe: @timeframe).order(:time).to_a
   end
   def update
     @instrument = Instrument.find(params[:id])
