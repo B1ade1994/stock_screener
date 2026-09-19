@@ -2,24 +2,78 @@ import { Controller } from "@hotwired/stimulus"
 import { ChartViewport } from "chart_viewport"
 
 export default class extends Controller {
-  static targets = ["cursor", "horizontal", "line", "label", "price", "vertical", "dateLabel", "date", "volume", "svg", "pricePlot", "volumePlot", "priceTick", "dateStart", "dateEnd"]
-  static values = { low: Number, high: Number }
+  static targets = ["cursor", "horizontal", "line", "label", "price", "vertical", "dateLabel", "date", "volume", "svg", "pricePlot", "volumePlot", "priceTick", "dateStart", "dateEnd", "currentPrice", "currentPriceLine", "currentPriceLabel", "currentPriceText", "currentPriceTitle"]
+  static values = { low: Number, high: Number, startIndex: Number, quoteUrl: String, lastPrice: Number, lastTradeAt: String }
 
   connect() {
+    this.quote = { price: this.hasLastPriceValue ? this.lastPriceValue : null, traded_at: this.lastTradeAtValue }
+    this.quoteAbort = new AbortController()
     this.formatter = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 })
     this.dates = [...this.element.querySelectorAll(".chart-candle")].map(candle => candle.dataset.date)
     this.volumes = [...this.element.querySelectorAll(".chart-candle")].map(candle => candle.dataset.volume)
     this.volumeBars = [...this.element.querySelectorAll(".chart-volume")]
     this.viewport = new ChartViewport(this.dates.length)
+    this.viewport.showFrom(this.startIndexValue)
+    if (this.svgTarget.dataset.timeframe === "day") {
+      const bounds = [...this.element.querySelectorAll(".chart-candle > line")].map(wick => ({
+        top: Number(wick.getAttribute("y1")), bottom: Number(wick.getAttribute("y2"))
+      }))
+      this.viewport.fitCandles(bounds)
+    }
     this.onWheel = event => this.wheel(event)
     this.svgTarget.addEventListener("wheel", this.onWheel, { passive: false })
     this.render()
     this.hide()
+    if (this.hasQuoteUrlValue) this.refreshQuote(this.quoteAbort.signal)
   }
 
   disconnect() {
+    this.quoteAbort.abort()
+    clearTimeout(this.quoteTimer)
     this.svgTarget.removeEventListener("wheel", this.onWheel)
     this.finishDrag()
+  }
+
+  async refreshQuote(signal) {
+    try {
+      if (!document.hidden) {
+        const response = await fetch(this.quoteUrlValue, { headers: { Accept: "application/json" }, cache: "no-store", signal })
+        if (!response.ok) throw new Error("Quote unavailable")
+        const quote = await response.json()
+        if (!signal.aborted) this.quote = quote
+      }
+    } catch (error) {
+      // Keep the last received quote; its trade timestamp still shows its age.
+    } finally {
+      if (!signal.aborted) {
+        this.renderCurrentPrice()
+        this.quoteTimer = setTimeout(() => this.refreshQuote(signal), 5000)
+      }
+    }
+  }
+
+  renderCurrentPrice() {
+    const marker = this.viewport.priceMarker(this.quote.price, this.lowValue, this.highValue)
+    this.currentPriceTarget.setAttribute("display", marker ? "inline" : "none")
+    if (!marker) return
+    const tradedAt = Date.parse(this.quote.traded_at)
+    const stale = !Number.isFinite(tradedAt) || Date.now() - tradedAt > 120000
+    const color = stale ? "#b7791f" : "#168779"
+    this.currentPriceTextTarget.textContent = `${marker.direction ? marker.direction + " " : ""}${this.formatter.format(Number(this.quote.price))}`
+    const width = Math.max(82, this.currentPriceTextTarget.getComputedTextLength() + 14)
+    const left = Math.min(912, 1000 - width)
+    this.currentPriceTarget.setAttribute("transform", `translate(0 ${marker.y})`)
+    this.currentPriceLineTarget.setAttribute("visibility", marker.inRange ? "visible" : "hidden")
+    this.currentPriceLineTarget.setAttribute("stroke", color)
+    this.currentPriceLineTarget.setAttribute("x2", left)
+    this.currentPriceLabelTarget.setAttribute("fill", color)
+    this.currentPriceLabelTarget.setAttribute("x", left)
+    this.currentPriceLabelTarget.setAttribute("width", width)
+    this.currentPriceTextTarget.setAttribute("x", left + width / 2)
+    const time = Number.isFinite(tradedAt) ? new Date(tradedAt).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }) + " МСК" : "время неизвестно"
+    const description = `Последняя сделка: ${this.formatter.format(Number(this.quote.price))} · ${time}${stale ? " · Нет свежих сделок" : ""}${marker.inRange ? "" : " · За пределами видимой шкалы"}`
+    this.currentPriceTitleTarget.textContent = description
+    this.currentPriceTarget.setAttribute("aria-label", description)
   }
 
   point(event) {
@@ -96,6 +150,7 @@ export default class extends Controller {
     const last = view.candleAt(900 - 1e-7, this.dates.length)
     this.dateStartTarget.textContent = this.dates[first]
     this.dateEndTarget.textContent = this.dates[last]
+    this.renderCurrentPrice()
   }
 
   move(event) {

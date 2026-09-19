@@ -28,6 +28,7 @@ RSpec.describe "Instrument chart", type: :request do
     frame = Nokogiri::HTML(response.body).at_css("turbo-frame#instrument-chart")
     expect(frame.css(".chart-candle").size).to eq(70)
     expect(frame.at_css("svg")["data-timeframe"]).to eq("week")
+    expect(frame.at_css("[data-controller='chart-cursor']")["data-chart-cursor-start-index-value"]).to eq("0")
     expect(frame.at_css(".chart-periods [aria-current='page']").text).to eq("Неделя · 1W")
   end
 
@@ -139,6 +140,57 @@ RSpec.describe "Instrument chart", type: :request do
     expect(group["display"]).to eq("none")
     expect(page.at_css("[data-controller='chart-strength-filter']")["data-chart-strength-filter-instrument-value"]).to eq(instrument.id.to_s)
     expect(page.at_css("tr[data-price-level-id='#{manual.id}']")).to be_present
+  end
+
+  it "opens daily history at two calendar months before the latest candle without dropping older bars" do
+    %w[2025-12-01 2026-02-27 2026-02-28 2026-03-02 2026-03-10 2026-04-01 2026-04-10 2026-04-30].each do |date|
+      candle("day", Time.iso8601("#{date}T00:00:00Z"))
+    end
+    get instrument_path(instrument)
+    page = Nokogiri::HTML(response.body)
+    expect(page.at_css("svg.chart")["data-timeframe"]).to eq("day")
+    expect(page.at_css("[data-controller='chart-cursor']")["data-chart-cursor-start-index-value"]).to eq("2")
+    expect(page.css(".chart-candle").size).to eq(8)
+  end
+
+  it "opens all available daily history when it is shorter than two months" do
+    candle("day", 2.days.ago)
+    candle("day", 1.day.ago)
+    get instrument_path(instrument)
+    page = Nokogiri::HTML(response.body)
+    expect(page.at_css("[data-controller='chart-cursor']")["data-chart-cursor-start-index-value"]).to eq("0")
+  end
+
+  it "supplies the last trade to the stationary price marker on both chart periods" do
+    time = Time.iso8601("2026-09-19T12:00:00Z")
+    instrument.update!(last_price: 123.45, last_trade_at: time)
+    %w[day week].each do |timeframe|
+      candle(timeframe, 1.week.ago)
+      get instrument_path(instrument, timeframe: timeframe)
+      page = Nokogiri::HTML(response.body)
+      controller = page.at_css("[data-controller='chart-cursor']")
+      expect(controller["data-chart-cursor-last-price-value"].to_d).to eq(123.45.to_d)
+      expect(Time.iso8601(controller["data-chart-cursor-last-trade-at-value"])).to eq(time)
+      expect(controller["data-chart-cursor-quote-url-value"]).to eq(quote_instrument_path(instrument))
+      marker = page.at_css("[data-chart-cursor-target='currentPrice']")
+      expect(marker.parent).to eq(page.at_css("svg.chart"))
+      expect(marker.css("[data-chart-cursor-target='currentPriceLine']").size).to eq(1)
+      expect(marker.css("[data-chart-cursor-target='currentPriceText']").size).to eq(1)
+    end
+  end
+
+  it "returns the latest stored trade without caching or substituting a candle close" do
+    candle("day", 1.day.ago, 100)
+    get quote_instrument_path(instrument), as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to eq("price" => nil, "traded_at" => nil)
+    expect(response.headers["Cache-Control"]).to include("no-store")
+
+    time = Time.iso8601("2026-09-19T12:01:00Z")
+    instrument.update!(last_price: 125.75, last_trade_at: time)
+    get quote_instrument_path(instrument), as: :json
+    expect(response.parsed_body.fetch("price").to_d).to eq(125.75.to_d)
+    expect(Time.iso8601(response.parsed_body.fetch("traded_at"))).to eq(time)
   end
 
 end

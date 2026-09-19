@@ -21,9 +21,20 @@ class InstrumentsController < ApplicationController
     @signals = @instrument.signals.order(occurred_at: :desc).limit(30)
     @timeframe = %w[day week].include?(params[:timeframe]) ? params[:timeframe] : "day"
     @candles = @instrument.candles.where(timeframe: @timeframe).order(:time).to_a
+    @chart_start_index = 0
+    if @timeframe == "day" && @candles.any?
+      start_date = @candles.last.time.to_date << 2
+      @chart_start_index = @candles.index { |candle| candle.time.to_date >= start_date } || 0
+    end
     @ema_series = (@timeframe == "week" ? [20, 40] : [20, 50, 200]).to_h { |period| [period, MarketIndicators.ema(@candles, period)] }
     @trend = MarketIndicators.context(@candles, @timeframe)
   end
+  def quote
+    instrument = Instrument.find(params[:id])
+    response.headers["Cache-Control"] = "no-store"
+    render json: { price: instrument.last_price, traded_at: instrument.last_trade_at&.iso8601 }
+  end
+
   def update
     @instrument = Instrument.find(params[:id])
     saved = @instrument.update(params.require(:instrument).permit(:enabled, :volume_enabled, :breakout_enabled, :volume_multiplier, :minimum_volume))
