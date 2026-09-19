@@ -27,7 +27,7 @@ module Detectors
           inner = resistance ? [body, value - 0.6 * atr].max : [body, value + 0.6 * atr].min
           lo, hi = [value, inner].minmax
           { price: value, lower: [lo - 0.15 * atr, 1e-9].max, upper: hi + 0.15 * atr,
-            atr: atr, index: i, time: c.time, reaction_atr: reaction / atr,
+            atr: atr, index: i, time: c.time, reference: c.reference?, reaction_atr: reaction / atr,
             reaction_percent: reaction / value * 100, relative_volume: relative_volume(candles, i, timeframe: timeframe) }
         end
         clusters = []
@@ -62,7 +62,7 @@ module Detectors
           upper = items.map { |p| p[:upper] }.max
           { side: side, price: (lower + upper) / 2, lower_price: lower, upper_price: upper, atr: atrs.last,
             status: items.size >= 2 ? "confirmed" : "candidate", touches: items.size,
-            assessment: { version: VERSION, origin_side: side, score: score.round(2),
+            assessment: { version: VERSION, reference_history: items.any? { |p| p[:reference] }, origin_side: side, score: score.round(2),
               relative_volume: ratios.any? ? (ratios.sum / ratios.size).round(2) : nil, volume_samples: ratios.size,
               volume_basis: timeframe == "week" ? "previous_20_weeks" : "previous_20_same_weekday_group",
               reaction_atr: (items.sum { |p| p[:reaction_atr] } / items.size).round(2),

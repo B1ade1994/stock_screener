@@ -193,4 +193,17 @@ RSpec.describe "Instrument chart", type: :request do
     expect(Time.iso8601(response.parsed_body.fetch("traded_at"))).to eq(time)
   end
 
+  it "renders imported price history without presenting missing futures volume as zero" do
+    candle("day", 2.days.ago).update!(data_source: "yahoo_spy", volume: nil, reference_volume: 50_000_000)
+    candle("day", 1.day.ago)
+    get instrument_path(instrument)
+    expect(response).to have_http_status(:ok)
+    page = Nokogiri::HTML(response.body)
+    expect(page.text).to include("Ранняя история дополнена SPY")
+    imported = page.at_css(".chart-candle[data-source='yahoo_spy']")
+    expect(imported["data-volume"]).to eq("")
+    expect(imported.at_css("title").text).to include("SPY · Yahoo Finance")
+    expect(page.at_css(".chart-volume[data-source='yahoo_spy'] title").text).to include("объём SP500F недоступен")
+  end
+
 end

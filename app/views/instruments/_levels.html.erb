@@ -16,7 +16,7 @@
       <% @levels.each do |level| %>
         <% assessment = level.assessment; distance = level.distance_percent(@instrument.last_price); strength = @level_strength.call(level) %>
         <tr data-price-level-id="<%= level.id %>">
-          <td class="numeric"><%= number_with_precision(level.price, precision: 4, strip_insignificant_zeros: true) %><small><%= level.source == 'manual' ? 'Вручную' : 'Автоматический' %><% if level.lower_price && level.upper_price %><br><%= number_with_precision(level.lower_bound, precision: 2) %>–<%= number_with_precision(level.upper_bound, precision: 2) %><% end %></small></td>
+          <td class="numeric"><%= number_with_precision(level.price, precision: 4, strip_insignificant_zeros: true) %><small><%= level.source == 'manual' ? 'Вручную' : 'Автоматический' %><% if assessment['reference_history'] %> · с историей SPY<% end %><% if level.lower_price && level.upper_price %><br><%= number_with_precision(level.lower_bound, precision: 2) %>–<%= number_with_precision(level.upper_bound, precision: 2) %><% end %></small></td>
           <td><span class="badge"><%= level.timeframe == 'day' ? '1D' : '1W' %></span></td>
           <td><%= level.side == 'support' ? 'Поддержка' : 'Сопротивление' %><small><%= level_status_label(level.status) %></small></td>
           <td><%= level.touches %></td>

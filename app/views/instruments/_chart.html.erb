@@ -4,6 +4,7 @@
       <div>
         <h2><%= @timeframe == 'week' ? 'Недельный контекст' : 'Дневной контекст' %></h2>
         <span class="muted">Загружено завершённых свечей: <%= @candles.size %> · цены <%= @instrument.future? ? 'в пунктах' : @instrument.currency.upcase %></span>
+        <% if @candles.any?(&:reference?) %><p class="muted">Ранняя история дополнена SPY. Объёмы фьючерса доступны только для собственных свечей SP500F.</p><% end %>
       </div>
       <div class="chart-tools">
         <% if @candles.any? %>
@@ -17,9 +18,9 @@
             </div>
           </details>
         <% end %>
-      <nav class="chart-periods" aria-label="Период свечей">
+      <nav class="chart-periods" aria-label="Период свечей" data-controller="chart-period" data-chart-period-chart-cursor-outlet="#instrument-chart [data-controller='chart-cursor']">
         <% { 'day' => 'День · 1D', 'week' => 'Неделя · 1W' }.each do |timeframe, label| %>
-          <%= link_to label, instrument_path(@instrument, timeframe: timeframe), class: "button #{@timeframe == timeframe ? 'primary' : 'secondary'}", aria: { current: @timeframe == timeframe ? 'page' : nil } %>
+          <%= link_to label, instrument_path(@instrument, timeframe: timeframe), class: "button #{@timeframe == timeframe ? 'primary' : 'secondary'}", aria: { current: @timeframe == timeframe ? 'page' : nil }, data: { action: "click->chart-period#select", chart_period_timeframe_param: timeframe } %>
         <% end %>
       </nav>
       </div>
@@ -33,10 +34,10 @@
         high = maximum + padding
         range = high - low
         step = 900.0 / @candles.size
-        max_volume = @candles.map(&:volume).max || 0
+        max_volume = @candles.filter_map(&:volume).max || 0
         y = ->(value) { 280 - (value.to_f - low) / range * 240 }
       %>
-      <div class="chart-interaction" data-controller="chart-cursor" data-chart-cursor-quote-url-value="<%= quote_instrument_path(@instrument) %>" data-chart-cursor-last-price-value="<%= @instrument.last_price %>" data-chart-cursor-last-trade-at-value="<%= @instrument.last_trade_at&.iso8601 %>" data-chart-cursor-start-index-value="<%= @chart_start_index %>" data-chart-cursor-low-value="<%= low %>" data-chart-cursor-high-value="<%= high %>" data-action="turbo:before-cache@document->chart-cursor#reset">
+      <div class="chart-interaction" data-controller="chart-cursor" data-chart-cursor-quote-url-value="<%= quote_instrument_path(@instrument) %>" data-chart-cursor-last-price-value="<%= @instrument.last_price %>" data-chart-cursor-last-trade-at-value="<%= @instrument.last_trade_at&.iso8601 %>" data-chart-cursor-start-index-value="<%= @chart_start_index %>" data-chart-cursor-low-value="<%= low %>" data-chart-cursor-high-value="<%= high %>" data-action="turbo:before-cache@document->chart-cursor#prepareForCache">
       <svg class="chart" viewBox="0 24 1000 436" role="img" tabindex="0" aria-label="<%= @timeframe == 'week' ? 'Недельные' : 'Дневные' %> свечи, объёмы и все активные уровни" data-timeframe="<%= @timeframe %>" data-chart-cursor-target="svg"
         data-action="pointerdown->chart-cursor#startDrag pointermove->chart-cursor#move pointerup->chart-cursor#finishDrag pointercancel->chart-cursor#finishDrag lostpointercapture->chart-cursor#finishDrag pointerleave->chart-cursor#hide dblclick->chart-cursor#reset keydown->chart-cursor#key scroll@window->chart-cursor#hide resize@window->chart-cursor#hide">
         <defs>
@@ -53,8 +54,8 @@
         <g class="chart-price-content" data-chart-cursor-target="pricePlot">
         <% @candles.each_with_index do |candle, i| %>
           <% x = i * step + step / 2; color = candle.close >= candle.open ? '#168779' : '#cb6b64' %>
-          <g class="chart-candle" data-time="<%= candle.time.iso8601 %>" data-date="<%= candle.time.strftime('%d.%m.%Y') %>" data-volume="<%= candle.volume %>">
-            <title><%= candle.time.strftime('%d.%m.%Y') %> · O <%= candle.open %> H <%= candle.high %> L <%= candle.low %> C <%= candle.close %></title>
+          <g class="chart-candle" data-time="<%= candle.time.iso8601 %>" data-date="<%= candle.time.strftime('%d.%m.%Y') %>" data-volume="<%= candle.volume %>" data-source="<%= candle.data_source %>">
+            <title><%= candle.time.strftime('%d.%m.%Y') %> · <%= candle.source_label %> · O <%= candle.open %> H <%= candle.high %> L <%= candle.low %> C <%= candle.close %></title>
             <line x1="<%= x %>" x2="<%= x %>" y1="<%= y.call(candle.high) %>" y2="<%= y.call(candle.low) %>" stroke="<%= color %>"/>
             <rect x="<%= x - [step * 0.3, 8].min %>" y="<%= [y.call(candle.open), y.call(candle.close)].min %>" width="<%= [step * 0.6, 16].min %>" height="<%= [(y.call(candle.open) - y.call(candle.close)).abs, 1].max %>" fill="<%= color %>"/>
           </g>
@@ -86,9 +87,9 @@
         <g clip-path="url(#chart-volume-clip-<%= @instrument.id %>-<%= @timeframe %>)">
         <g data-chart-cursor-target="volumePlot">
         <% @candles.each_with_index do |candle, i| %>
-          <% x = i * step + step / 2; height = max_volume.positive? ? candle.volume.to_f / max_volume * 80 : 0 %>
-          <rect class="chart-volume" data-volume="<%= candle.volume %>" x="<%= x - [step * 0.3, 8].min %>" y="<%= 400 - height %>" width="<%= [step * 0.6, 16].min %>" height="<%= height %>" fill="<%= candle.close >= candle.open ? '#168779' : '#cb6b64' %>">
-            <title><%= candle.time.strftime('%d.%m.%Y') %> · Объём <%= number_with_delimiter(candle.volume, delimiter: ' ') %> лот. · цвет по направлению свечи, не сторона сделок</title>
+          <% x = i * step + step / 2; height = max_volume.positive? && candle.volume ? candle.volume.to_f / max_volume * 80 : 0 %>
+          <rect class="chart-volume" data-volume="<%= candle.volume %>" data-source="<%= candle.data_source %>" x="<%= x - [step * 0.3, 8].min %>" y="<%= 400 - height %>" width="<%= [step * 0.6, 16].min %>" height="<%= height %>" fill="<%= candle.close >= candle.open ? '#168779' : '#cb6b64' %>">
+            <title><%= candle.time.strftime('%d.%m.%Y') %> · <%= candle.volume.nil? ? 'SPY · объём SP500F недоступен' : "Объём #{number_with_delimiter(candle.volume, delimiter: ' ')} лот. · цвет по направлению свечи, не сторона сделок" %></title>
           </rect>
         <% end %>
         </g></g>

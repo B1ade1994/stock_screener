@@ -63,4 +63,13 @@ RSpec.describe Detectors::Levels do
     expect(described_class.crossed?(side: "support", price: 100, previous: nil, current: 90)).to be false
     expect(described_class.crossed?(side: "resistance", price: 100, previous: 101, current: 102)).to be false
   end
+  it "labels reference-derived levels and never treats SPY volume as futures volume" do
+    rows = history
+    rows.each { |row| row.assign_attributes(data_source: "yahoo_spy", volume: nil, reference_volume: 1_000_000) }
+    zone = described_class.candidates(rows).sole
+    expect(zone[:assessment]).to include(reference_history: true, relative_volume: nil, volume_samples: 0)
+    rows[33].assign_attributes(data_source: "t_invest", volume: 100)
+    expect(described_class.relative_volume(rows, 33)).to be_nil
+  end
+
 end

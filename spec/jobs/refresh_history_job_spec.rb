@@ -48,4 +48,14 @@ RSpec.describe RefreshHistoryJob, type: :job do
     instrument.price_levels.create!(source: "manual", side: "resistance", timeframe: "day", price: 100)
     expect { described_class.perform_now(instrument.id) }.not_to change(MarketSignal, :count)
   end
+  it "preserves earlier reference history and gives real exchange candles priority at a matching timestamp" do
+    reference = instrument.candles.create!(timeframe: "day", time: 5.days.ago, open: 90, high: 91, low: 89, close: 90,
+      volume: nil, reference_volume: 1_000_000, data_source: "yahoo_spy")
+    replacement = instrument.candles.create!(timeframe: "day", time: 3.days.ago, open: 90, high: 91, low: 89, close: 90,
+      volume: nil, reference_volume: 1_000_000, data_source: "yahoo_spy")
+    described_class.perform_now(instrument.id)
+    expect(reference.reload).to have_attributes(data_source: "yahoo_spy", volume: nil)
+    expect(replacement.reload).to have_attributes(data_source: "t_invest", volume: 100, reference_volume: nil, close: 99)
+  end
+
 end

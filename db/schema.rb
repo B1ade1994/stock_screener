@@ -10,19 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_19_000500) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_19_000600) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "candles", force: :cascade do |t|
     t.decimal "close", precision: 24, scale: 9, null: false
+    t.string "data_source", default: "t_invest", null: false
     t.decimal "high", precision: 24, scale: 9, null: false
     t.bigint "instrument_id", null: false
     t.decimal "low", precision: 24, scale: 9, null: false
     t.decimal "open", precision: 24, scale: 9, null: false
+    t.bigint "reference_volume"
     t.datetime "time", null: false
     t.string "timeframe", null: false
-    t.bigint "volume", null: false
+    t.bigint "volume"
     t.index ["instrument_id", "timeframe", "time"], name: "index_candles_on_instrument_id_and_timeframe_and_time", unique: true
     t.index ["instrument_id"], name: "index_candles_on_instrument_id"
   end

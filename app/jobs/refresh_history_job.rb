@@ -12,7 +12,7 @@ class RefreshHistoryJob < ApplicationJob
   def refresh(instrument, client: TInvest::Client.new)
     %w[day week].each do |timeframe|
       rows = client.candles(instrument.uid, timeframe).map do |c|
-        { instrument_id: instrument.id, timeframe: timeframe, time: Time.iso8601(c.fetch("time")), volume: c.fetch("volume").to_i }.merge(%w[open high low close].to_h { |key| [key.to_sym, TInvest::Client.number(c.fetch(key))] })
+        { instrument_id: instrument.id, timeframe: timeframe, data_source: "t_invest", reference_volume: nil, time: Time.iso8601(c.fetch("time")), volume: c.fetch("volume").to_i }.merge(%w[open high low close].to_h { |key| [key.to_sym, TInvest::Client.number(c.fetch(key))] })
       end
       Candle.upsert_all(rows, unique_by: [:instrument_id, :timeframe, :time]) if rows.any?
       instrument.with_lock do

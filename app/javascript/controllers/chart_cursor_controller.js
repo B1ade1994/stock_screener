@@ -13,6 +13,14 @@ export default class extends Controller {
     this.volumes = [...this.element.querySelectorAll(".chart-candle")].map(candle => candle.dataset.volume)
     this.volumeBars = [...this.element.querySelectorAll(".chart-volume")]
     this.viewport = new ChartViewport(this.dates.length)
+    this.onWheel = event => this.wheel(event)
+    this.svgTarget.addEventListener("wheel", this.onWheel, { passive: false })
+    this.restoreInitial()
+    if (this.hasQuoteUrlValue) this.refreshQuote(this.quoteAbort.signal)
+  }
+
+  restoreInitial() {
+    this.finishDrag()
     this.viewport.showFrom(this.startIndexValue)
     if (this.svgTarget.dataset.timeframe === "day") {
       const bounds = [...this.element.querySelectorAll(".chart-candle > line")].map(wick => ({
@@ -20,11 +28,8 @@ export default class extends Controller {
       }))
       this.viewport.fitCandles(bounds)
     }
-    this.onWheel = event => this.wheel(event)
-    this.svgTarget.addEventListener("wheel", this.onWheel, { passive: false })
     this.render()
     this.hide()
-    if (this.hasQuoteUrlValue) this.refreshQuote(this.quoteAbort.signal)
   }
 
   disconnect() {
@@ -122,6 +127,13 @@ export default class extends Controller {
   zoomOut() { this.viewport.zoom(1 / 1.4); this.render(); this.hide() }
   reset() { this.finishDrag(); this.viewport.reset(); this.render(); this.hide() }
 
+  prepareForCache() {
+    // Frame navigation can cache the page after the new chart has connected.
+    // Hide transient UI without undoing its initial two-month viewport.
+    this.finishDrag()
+    this.hide()
+  }
+
   key(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) return
     const actions = {
@@ -207,7 +219,7 @@ export default class extends Controller {
       return
     }
     const candleX = Math.max(0, Math.min(900, this.viewport.screenX((index + 0.5) * step)))
-    this.volumeTarget.textContent = `Объём: ${this.formatter.format(Number(this.volumes[index]))} лот.`
+    this.volumeTarget.textContent = this.volumes[index] === "" ? "Объём SP500F недоступен · история SPY" : `Объём: ${this.formatter.format(Number(this.volumes[index]))} лот.`
     this.selectedBar?.classList.remove("selected")
     this.selectedBar = this.volumeBars[index]
     this.selectedBar?.classList.add("selected")
