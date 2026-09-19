@@ -1,0 +1,9 @@
+development: &tasks
+  refresh_history:
+    class: RefreshHistoryJob
+    schedule: every hour
+  prune_minutes:
+    command: "MarketMinute.where('time < ?', 7.days.ago).delete_all"
+    schedule: every day at 3am
+production:
+  <<: *tasks

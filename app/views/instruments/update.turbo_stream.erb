@@ -1,0 +1,2 @@
+<%= turbo_stream.replace dom_id(@instrument), partial: "instruments/row", locals: { instrument: @instrument, save_error: @save_error } %>
+<%= turbo_stream.update "watched-instruments-count", @watched_count.to_s %>

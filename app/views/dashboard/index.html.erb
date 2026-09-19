@@ -1,0 +1,19 @@
+<div class="page-heading"><div><div class="eyebrow">ВАШ СПИСОК НАБЛЮДЕНИЯ</div><h1>Рынок под наблюдением</h1><p>Отмечайте события, которые хотите замечать вовремя.</p></div><%= link_to "＋ Добавить инструмент", search_instruments_path, class: "button primary" %></div>
+<%= turbo_frame_tag "dashboard", data: { controller: "refresh", refresh_interval_value: 5000, action: "turbo:submit-start->refresh#invalidate turbo:before-frame-render->refresh#beforeRender" } do %>
+  <div class="stats">
+    <div class="stat"><span>В наблюдении</span><strong><span id="watched-instruments-count"><%= @instruments.count { |i| i.enabled && !i.expired? } %></span><small> / <%= @instruments.size %></small></strong></div>
+    <div class="stat"><span>Аномальные объёмы</span><strong>1 мин<small> / база 20 мин</small></strong></div>
+    <div class="stat"><span>Сильные уровни</span><strong>1D <small>и</small> 1W</strong></div>
+    <div class="stat"><span>Поток данных</span><strong class="connection"><span class="dot <%= @collector&.live? ? '' : 'offline' %>"></span><%= @collector&.live? ? 'Подключён' : 'Ожидание' %></strong><small><%= @collector&.heartbeat_at && @collector.heartbeat_at > 20.seconds.ago ? @collector.message : 'Сборщик не подключён' %></small></div>
+  </div>
+  <section class="panel"><div class="panel-heading"><h2>Инструменты <span class="count"><%= @instruments.size %></span></h2><span class="muted">Настройки сохраняются автоматически</span></div>
+    <% if @instruments.empty? %>
+      <div class="empty"><div class="empty-icon">⌁</div><h3>Начните с первой бумаги</h3><p>Введите тикер акции или конкретного фьючерсного контракта.<br>Выберите инструмент и включите нужные сигналы.</p><%= link_to "Найти инструмент →", search_instruments_path, class: "button primary", data: { turbo_frame: "_top" } %></div>
+    <% else %>
+      <div class="table-scroll"><table><thead><tr><th>Инструмент</th><th>Последняя цена</th><th>Наблюдать</th><th>Объём · 1 мин</th><th>Уровни · D / W</th><th>Данные</th></tr></thead><tbody>
+      <%= render partial: "instruments/row", collection: @instruments, as: :instrument %>
+      </tbody></table></div>
+    <% end %>
+  </section>
+  <section class="panel"><div class="panel-heading"><div><h2>Лента событий</h2><span class="muted">Причина срабатывания сохраняется вместе с сигналом</span></div><span class="badge">Последние 50</span></div><%= render "signals/list", signals: @signals %></section>
+<% end %>

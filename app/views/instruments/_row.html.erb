@@ -1,0 +1,29 @@
+<tr id="<%= dom_id(instrument) %>" class="<%= 'disabled-row' unless instrument.enabled %>">
+  <td>
+    <%= link_to instrument.ticker, instrument_path(instrument), class: "ticker", data: { turbo_frame: "_top" } %>
+    <span class="instrument-name"><%= instrument.name %></span>
+    <span class="badge"><%= instrument.future? ? "Фьючерс · #{instrument.expiration_date}" : 'Акция' %></span>
+  </td>
+  <td class="numeric">
+    <%= instrument.last_price ? number_with_precision(instrument.last_price, precision: 4, strip_insignificant_zeros: true, delimiter: ' ') : '—' %>
+    <small><%= instrument.future? ? 'пункты' : instrument.currency.upcase %></small>
+  </td>
+  <% [:enabled, :volume_enabled, :breakout_enabled].each do |field| %>
+    <td>
+      <%= form_with model: instrument, data: { controller: "autosave", action: "turbo:submit-start->autosave#start turbo:submit-end->autosave#finish" } do |f| %>
+        <%= f.check_box field, id: "#{dom_id(instrument)}_#{field}", aria: { label: "#{instrument.ticker}: #{field}" }, data: { action: "change->autosave#submit" } %>
+      <% end %>
+    </td>
+  <% end %>
+  <td>
+    <% if instrument.expired? %>
+      <span class="badge amber">Истёк контракт</span>
+    <% elsif instrument.last_trade_at %>
+      <span class="badge <%= 'amber' if instrument.last_trade_at < 2.minutes.ago %>"><%= instrument.last_trade_at < 2.minutes.ago ? 'Нет свежих сделок' : 'Данные поступают' %></span>
+      <small><%= instrument.last_trade_at.strftime('%d.%m %H:%M:%S') %></small>
+    <% else %>
+      <span class="muted">Ожидаем сделки</span>
+    <% end %>
+    <small class="autosave-error" role="alert" data-autosave-feedback><%= local_assigns[:save_error] %></small>
+  </td>
+</tr>
