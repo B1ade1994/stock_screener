@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_19_000200) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_19_000400) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -77,15 +77,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_000200) do
 
   create_table "price_levels", force: :cascade do |t|
     t.boolean "active", default: true, null: false
+    t.jsonb "assessment", default: {}, null: false
+    t.decimal "atr", precision: 24, scale: 9
+    t.jsonb "breakout", default: {}, null: false
     t.datetime "created_at", null: false
+    t.datetime "evaluated_at"
     t.bigint "instrument_id", null: false
     t.datetime "last_alert_at"
+    t.decimal "lower_price", precision: 24, scale: 9
     t.decimal "price", precision: 24, scale: 9, null: false
     t.string "side", null: false
     t.string "source", null: false
+    t.string "status", default: "confirmed", null: false
     t.string "timeframe", null: false
     t.integer "touches", default: 1, null: false
     t.datetime "updated_at", null: false
+    t.decimal "upper_price", precision: 24, scale: 9
     t.index ["instrument_id"], name: "index_price_levels_on_instrument_id"
   end
 

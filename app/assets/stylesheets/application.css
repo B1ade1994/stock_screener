@@ -23,3 +23,8 @@ td .autosave-error { color: #a4614b; max-width: 240px; }
 
 .chart[data-controller="chart-cursor"] { cursor: crosshair; user-select: none; }
 .chart-cursor { pointer-events: none; }
+
+.levels-table th, .levels-table td { padding-left: 12px; padding-right: 12px; }
+.levels-table .numeric { white-space: nowrap; }
+.chart-volume { opacity: .65; }
+.chart-volume.selected { opacity: 1; stroke: #34515e; stroke-width: .7; }

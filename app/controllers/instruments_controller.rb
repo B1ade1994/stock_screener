@@ -20,6 +20,8 @@ class InstrumentsController < ApplicationController
     @signals = @instrument.signals.order(occurred_at: :desc).limit(30)
     @timeframe = %w[day week].include?(params[:timeframe]) ? params[:timeframe] : "day"
     @candles = @instrument.candles.where(timeframe: @timeframe).order(:time).to_a
+    @ema_series = (@timeframe == "week" ? [20, 40] : [20, 50, 200]).to_h { |period| [period, MarketIndicators.ema(@candles, period)] }
+    @trend = MarketIndicators.context(@candles, @timeframe)
   end
   def update
     @instrument = Instrument.find(params[:id])
