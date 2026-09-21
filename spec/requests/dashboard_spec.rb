@@ -25,6 +25,25 @@ RSpec.describe "Dashboard tabs", type: :request do
     end
   end
 
+  it "filters the feed between volume and level events before applying the limit" do
+    level = instrument.signals.create!(kind: "crossing", title: "Пересечение уровня", event_key: "dashboard-level", occurred_at: 1.minute.ago, details: {})
+
+    get root_path(tab: "events", event_filter: "volume")
+    page = Nokogiri::HTML(response.body)
+    feed = page.css(".signal").map(&:text).join
+    expect(feed).to include(signal.title)
+    expect(feed).not_to include(level.title)
+    expect(page.at_css(".event-filter.active").text).to eq("Объём")
+
+    get root_path(tab: "events", event_filter: "levels"), headers: { "Turbo-Frame" => "dashboard" }
+    page = Nokogiri::HTML(response.body)
+    feed = page.css(".signal").map(&:text).join
+    expect(feed).to include(level.title)
+    expect(feed).not_to include(signal.title)
+    expect(page.at_css(".event-filter.active").text).to eq("Пересечение уровня")
+    expect(page.at_css("a.event-filter[href='#{root_path(tab: 'events', event_filter: 'levels')}']")).to be_present
+  end
+
   it "falls back to instruments for an unknown tab" do
     get root_path(tab: "unknown")
     expect(Nokogiri::HTML(response.body).at_css(".sidebar .workspace-link[aria-current='page']").text).to eq("Акции")

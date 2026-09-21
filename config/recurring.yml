@@ -1,4 +1,7 @@
 development: &tasks
+  refresh_signal_reactions:
+    class: RefreshSignalReactionsJob
+    schedule: every minute
   refresh_history:
     class: RefreshHistoryJob
     schedule: every hour

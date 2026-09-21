@@ -7,6 +7,7 @@ Rails.application.routes.draw do
   resources :instruments, only: [:create, :update, :destroy, :show] do
     get :search, on: :collection
     get :quote, on: :member
+    get :events, on: :member
     post :refresh, on: :member
     patch :move, on: :member
     resources :price_levels, only: [:create, :update, :destroy]

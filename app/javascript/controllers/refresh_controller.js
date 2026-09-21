@@ -1,14 +1,15 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static values = { interval: Number }
+  static values = { interval: Number, url: String }
 
   connect() {
     this.discardRefresh = false
     this.timer = setInterval(() => {
       if (document.hidden || this.element.contains(document.activeElement) || this.element.hasAttribute("busy") || this.element.querySelector("[data-autosave-saving]")) return
-      if (this.element.src === window.location.href) this.element.reload()
-      else this.element.src = window.location.href
+      const url = this.hasUrlValue ? new URL(this.urlValue, window.location.origin).href : window.location.href
+      if (this.element.src === url) this.element.reload()
+      else this.element.src = url
     }, this.intervalValue || 5000)
   }
 

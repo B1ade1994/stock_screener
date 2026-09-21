@@ -58,4 +58,17 @@ RSpec.describe RefreshHistoryJob, type: :job do
     expect(replacement.reload).to have_attributes(data_source: "t_invest", volume: 100, reference_volume: nil, close: 99)
   end
 
+  context "with spot gold" do
+    let(:instrument) { create_instrument(ticker: "GLDRUB_TOM", kind: "currency", class_code: "CETS") }
+    let(:weekly_candles) { [candle(7.days.ago, 98)] }
+
+    it "loads both timeframes by UID and keeps prices and API volumes unchanged" do
+      described_class.perform_now(instrument.id)
+      expect(instrument.candles.group(:timeframe).count).to eq("day" => 2, "week" => 1)
+      expect(instrument.candles.where(timeframe: "day").order(:time).last).to have_attributes(close: 102, volume: 100)
+      expect(instrument.reload.history_error).to be_nil
+      expect(instrument.history_synced_at).to eq(Time.current)
+    end
+  end
+
 end

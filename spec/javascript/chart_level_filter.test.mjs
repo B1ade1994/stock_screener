@@ -17,10 +17,11 @@ test("all filters respect levels hidden by the eye", () => {
   }
 })
 
-test("missing or obsolete saved selections default to all levels", () => {
+test("missing or obsolete saved selections default to high strength", () => {
   for (const value of [undefined, null, "invalid", "4"]) {
-    assert.deepEqual(normalizeStrengthFilter(value), ["3", "2", "1", "unrated"])
-    assert.equal(matchesStrengthFilter("unrated", true, value), true)
+    assert.deepEqual(normalizeStrengthFilter(value), ["3"])
+    assert.equal(matchesStrengthFilter("3", true, value), true)
+    assert.equal(matchesStrengthFilter("unrated", true, value), false)
   }
 })
 
@@ -65,7 +66,8 @@ test("an intentionally empty selection survives serialization and hides all leve
 
 test("legacy, duplicated and malformed saved preferences normalize safely", () => {
   assert.deepEqual(normalizeStrengthFilter("3"), ["3"])
+  assert.deepEqual(normalizeStrengthFilter("all"), ["3", "2", "1", "unrated"])
   assert.deepEqual(normalizeStrengthFilter('["2","3","2","obsolete"]'), ["3", "2"])
-  assert.deepEqual(normalizeStrengthFilter("[broken"), ["3", "2", "1", "unrated"])
-  assert.deepEqual(normalizeStrengthFilter('["obsolete"]'), ["3", "2", "1", "unrated"])
+  assert.deepEqual(normalizeStrengthFilter("[broken"), ["3"])
+  assert.deepEqual(normalizeStrengthFilter('["obsolete"]'), ["3"])
 })

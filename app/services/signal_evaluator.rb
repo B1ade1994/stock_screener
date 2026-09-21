@@ -4,10 +4,7 @@ class SignalEvaluator
     history = instrument.market_minutes.where(session: bar.session).where('time < ?', bar.time).order(time: :desc).limit(20).to_a.reverse
     details = Detectors::Volume.evaluate(current: bar, history: history, multiplier: instrument.volume_multiplier, minimum: instrument.minimum_volume)
     return unless details
-    key = "volume:#{instrument.id}:#{bar.time.to_i}"
-    MarketSignal.find_or_create_by!(event_key: key) do |signal|
-      signal.assign_attributes(instrument: instrument, kind: "volume", occurred_at: bar.time + 60, title: "Объём за минуту ×#{details[:ratio]}", details: details.merge(baseline_description: "Медиана предыдущих 20 полных минут без разрывов"))
-    end
+    VolumeEpisode.record(instrument: instrument, bar: bar, details: details.merge(open_price: bar.open_price&.to_s, close_price: bar.close_price&.to_s))
   end
   def self.crossings(instrument, price, time)
     return unless instrument.enabled? && instrument.breakout_enabled? && time > 30.seconds.ago

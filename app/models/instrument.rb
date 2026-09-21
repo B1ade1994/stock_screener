@@ -1,13 +1,21 @@
 class Instrument < ApplicationRecord
+  METAL_TICKERS = %w[GLDRUB_TOM SLVRUB_TOM].freeze
+  KIND_LABELS = { "share" => "Акция", "futures" => "Фьючерс", "currency" => "Драгметалл" }.freeze
+
+  def self.precious_metal?(kind:, ticker:, class_code:)
+    kind == "currency" && class_code == "CETS" && METAL_TICKERS.include?(ticker)
+  end
+
   has_many :candles, dependent: :delete_all
   has_many :price_levels, dependent: :destroy
   has_many :market_minutes, dependent: :delete_all
   has_many :signals, class_name: "MarketSignal", dependent: :delete_all
   validates :uid, :ticker, :name, :class_code, :currency, presence: true
   validates :uid, uniqueness: true
-  validates :kind, inclusion: { in: %w[share futures] }
+  validates :kind, inclusion: { in: %w[share futures currency] }
   validates :volume_multiplier, numericality: { greater_than_or_equal_to: 1.5, less_than_or_equal_to: 100 }
   validates :minimum_volume, numericality: { only_integer: true, greater_than: 0 }
+  validate :supported_metal, if: -> { kind == "currency" }
   before_create :append_to_list
   scope :in_display_order, -> { order(:position, :id) }
   scope :watched, -> { where(enabled: true).where('expiration_date IS NULL OR expiration_date >= ?', Date.current) }
@@ -39,11 +47,17 @@ class Instrument < ApplicationRecord
     end
   end
 
+  def kind_label = KIND_LABELS.fetch(kind)
+  def metal? = self.class.precious_metal?(kind: kind, ticker: ticker, class_code: class_code)
   def future? = kind == "futures"
   def expired? = expiration_date.present? && expiration_date < Date.current
   def volume_unit = "лот."
 
   private
+
+  def supported_metal
+    errors.add(:kind, "поддерживает только биржевое золото и серебро CETS") unless metal?
+  end
 
   def append_to_list
     self.class.with_order_lock do

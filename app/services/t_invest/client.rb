@@ -24,14 +24,15 @@ module TInvest
     def search(query)
       instruments = call("InstrumentsService/FindInstrument", { query: query }).fetch("instruments", []).select do |instrument|
         instrument["instrumentType"] == "futures" ||
-          (instrument["instrumentType"] == "share" && instrument["classCode"] == "TQBR")
+          (instrument["instrumentType"] == "share" && instrument["classCode"] == "TQBR") ||
+          precious_metal?(instrument)
       end
-      shares, futures = instruments.partition { |instrument| instrument["instrumentType"] == "share" }
-      shares + futures
+      shares, others = instruments.partition { |instrument| instrument["instrumentType"] == "share" }
+      shares + others
     end
     def instrument(uid)
       data = call("InstrumentsService/GetInstrumentBy", { idType: "INSTRUMENT_ID_TYPE_UID", id: uid }).fetch("instrument")
-      raise Error, "Поддерживаются акции и фьючерсы" unless %w[share futures].include?(data["instrumentType"])
+      raise Error, "Поддерживаются акции, фьючерсы и биржевые драгметаллы" unless %w[share futures].include?(data["instrumentType"]) || precious_metal?(data)
       if data["instrumentType"] == "futures"
         data.merge!(call("InstrumentsService/FutureBy", { idType: "INSTRUMENT_ID_TYPE_UID", id: uid }).fetch("instrument"))
       end
@@ -44,6 +45,18 @@ module TInvest
     end
     def self.number(value)
       BigDecimal(value.fetch("units", "0").to_s) + BigDecimal(value.fetch("nano", 0).to_s) / 1_000_000_000
+    end
+
+    def minute_candles(uid, from:, to:)
+      call("MarketDataService/GetCandles", { instrumentId: uid, from: from.utc.iso8601, to: to.utc.iso8601, interval: "CANDLE_INTERVAL_1_MIN", candleSourceType: "CANDLE_SOURCE_EXCHANGE" })
+        .fetch("candles", []).select { |c| c["isComplete"] == true }.map do |candle|
+          { time: Time.iso8601(candle.fetch("time")) }.merge(%w[open high low close].to_h { |field| [field.to_sym, self.class.number(candle.fetch(field))] })
+        end
+    end
+    private
+
+    def precious_metal?(data)
+      Instrument.precious_metal?(kind: data["instrumentType"], ticker: data["ticker"], class_code: data["classCode"])
     end
   end
 end

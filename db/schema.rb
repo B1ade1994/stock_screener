@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_19_000600) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -66,8 +66,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_000600) do
 
   create_table "market_minutes", force: :cascade do |t|
     t.bigint "buy", default: 0, null: false
+    t.decimal "close_price", precision: 24, scale: 9
     t.boolean "complete", default: false, null: false
     t.bigint "instrument_id", null: false
+    t.decimal "open_price", precision: 24, scale: 9
     t.bigint "sell", default: 0, null: false
     t.string "session", null: false
     t.datetime "time", null: false
@@ -99,21 +101,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_000600) do
     t.index ["instrument_id"], name: "index_price_levels_on_instrument_id"
   end
 
+  create_table "signal_reactions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "last_error"
+    t.datetime "next_check_at"
+    t.datetime "reference_at", null: false
+    t.decimal "reference_price", precision: 24, scale: 9
+    t.jsonb "results", default: {}, null: false
+    t.bigint "signal_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["next_check_at"], name: "index_signal_reactions_on_next_check_at", where: "(next_check_at IS NOT NULL)"
+    t.index ["signal_id"], name: "index_signal_reactions_on_signal_id", unique: true
+  end
+
   create_table "signals", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.jsonb "details", default: {}, null: false
+    t.string "episode_direction"
     t.string "event_key", null: false
     t.bigint "instrument_id", null: false
     t.string "kind", null: false
+    t.datetime "last_occurred_at"
     t.datetime "occurred_at", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["event_key"], name: "index_signals_on_event_key", unique: true
+    t.index ["instrument_id", "episode_direction", "occurred_at"], name: "index_signals_on_episode_window"
     t.index ["instrument_id"], name: "index_signals_on_instrument_id"
   end
 
   add_foreign_key "candles", "instruments"
   add_foreign_key "market_minutes", "instruments"
   add_foreign_key "price_levels", "instruments"
+  add_foreign_key "signal_reactions", "signals", on_delete: :cascade
   add_foreign_key "signals", "instruments"
 end

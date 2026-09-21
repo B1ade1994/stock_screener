@@ -37,7 +37,9 @@ RSpec.describe "Price level chart visibility", type: :request do
     end
     set_visibility(true)
     get instrument_path(instrument)
-    expect(Nokogiri::HTML(response.body).at_css("svg [data-chart-level-id='#{level.id}']")["display"]).to eq("inline")
+    group = Nokogiri::HTML(response.body).at_css("svg [data-chart-level-id='#{level.id}']")
+    expect(group["data-chart-visible"]).to eq("true")
+    expect(group["display"]).to eq("none") # It remains filtered until "Без оценки" is selected.
   end
 
   it "works for manual levels as well" do

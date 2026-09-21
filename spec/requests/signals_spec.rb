@@ -1,6 +1,25 @@
 require "rails_helper"
 
 RSpec.describe "Sound notifications", type: :request do
+  it "renders legacy volume events with a neutral price icon" do
+    instrument = create_instrument
+    instrument.signals.create!(kind: "volume", title: "Old volume", event_key: "legacy-icon", occurred_at: Time.current)
+    get root_path(tab: "events")
+    icon = Nokogiri::HTML(response.body).at_css(".signal-symbol.price-flat")
+    expect(icon.text).to eq("→")
+    expect(icon["aria-label"]).to include("не определено")
+  end
+
+  it "rounds level ranges and the crossing price to tenths" do
+    instrument = create_instrument
+    instrument.signals.create!(kind: "crossing", title: "Level crossing", event_key: "rounded-crossing", occurred_at: Time.current,
+      details: { side: "resistance", lower: "249.679154367", upper: "256.376169127", price: "257.04123" })
+    get root_path(tab: "events")
+    text = Nokogiri::HTML(response.body).at_css(".signal p").text
+    expect(text).to include("Сопротивление 249,7–256,4 · цена 257")
+    expect(text).not_to include("249.679154367")
+  end
+
   it "returns an uncached empty cursor before any events exist" do
     get latest_signals_path
     expect(response).to have_http_status(:ok)

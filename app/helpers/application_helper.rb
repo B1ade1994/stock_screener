@@ -1,4 +1,21 @@
 module ApplicationHelper
+  def signal_symbol(signal)
+    return ["⌁", nil, nil] unless signal.kind == "volume"
+    case signal.price_direction
+    when "up" then ["↗", "price-up", "Цена выросла за аномальную минуту или эпизод"]
+    when "down" then ["↘", "price-down", "Цена снизилась за аномальную минуту или эпизод"]
+    else ["→", "price-flat", "Направление цены не определено"]
+    end
+  end
+
+  def signed_percent(value)
+    "#{value.positive? ? '+' : ''}#{number_with_precision(value, precision: 2)}%"
+  end
+
+  def signal_price(value)
+    number_with_precision(value, precision: 1, strip_insignificant_zeros: true, separator: ",", delimiter: " ")
+  end
+
   def level_status_label(status)
     { "candidate" => "Предварительная", "confirmed" => "Подтверждённая", "broken" => "Пробой: наблюдаем", "archived" => "Архив" }.fetch(status, status)
   end

@@ -1,0 +1,17 @@
+<% totals = signal.details.fetch("totals") %>
+<p>Всплесков: <strong><%= signal.details.fetch("burst_count") %></strong> ·
+  <%= signal.occurred_at.in_time_zone.strftime('%H:%M') %>–<%= signal.last_occurred_at.in_time_zone.strftime('%H:%M') %> ·
+  в аномальных минутах <%= number_with_delimiter(totals.fetch("volume")) %> <%= signal.instrument.volume_unit %>
+</p>
+<p>BUY <%= number_with_delimiter(totals.fetch("buy")) %> / SELL <%= number_with_delimiter(totals.fetch("sell")) %> / неизвестно <%= number_with_delimiter(totals.fetch("unknown")) %></p>
+<details class="episode-bursts">
+  <summary>Минутные всплески</summary>
+  <div class="table-scroll"><table>
+    <thead><tr><th>МСК</th><th>Объём, лоты</th><th>Обычный</th><th>Множитель</th><th>BUY / SELL / ?</th></tr></thead>
+    <tbody><% signal.details.fetch("bursts").each do |burst| %>
+      <tr><td><%= Time.iso8601(burst.fetch("time")).in_time_zone.strftime('%H:%M') %></td>
+        <td><%= number_with_delimiter(burst.fetch("volume")) %></td><td><%= burst.fetch("baseline") %></td><td>×<%= burst.fetch("ratio") %></td>
+        <td><%= burst.fetch("buy") %> / <%= burst.fetch("sell") %> / <%= burst.fetch("unknown") %></td></tr>
+    <% end %></tbody>
+  </table></div>
+</details>

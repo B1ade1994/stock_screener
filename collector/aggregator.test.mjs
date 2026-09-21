@@ -12,8 +12,18 @@ test("minute snapshots are cumulative, keep unknown side, and first minute is pa
   const bar = a.snapshot(minute+3000)[0].bars[0];
   assert.equal(bar.buy,10); assert.equal(bar.sell,10); assert.equal(bar.unknown,10);
   assert.equal(bar.trades,3); assert.equal(bar.complete,false);
+  assert.equal(bar.open_price,"100.000000000"); assert.equal(bar.close_price,"100.000000000");
   assert.equal(a.snapshot(minute+3000)[0].bars[0].buy,10);
   assert.equal(a.snapshot(minute+70000)[0].bars[0].complete,false);
+});
+test("minute open and close follow exchange time when trades arrive out of order", () => {
+  const a = new Aggregator(["uid"], minute);
+  a.trade({instrumentUid:"uid",time:new Date(minute+20000).toISOString(),quantity:1,direction:1,price:{units:"102",nano:0}},minute+21000);
+  a.trade({instrumentUid:"uid",time:new Date(minute+10000).toISOString(),quantity:1,direction:1,price:{units:"100",nano:0}},minute+22000);
+  a.trade({instrumentUid:"uid",time:new Date(minute+30000).toISOString(),quantity:1,direction:2,price:{units:"99",nano:0}},minute+31000);
+  const bar = a.snapshot(minute+32000)[0].bars[0];
+  assert.equal(bar.open_price,"100.000000000");
+  assert.equal(bar.close_price,"99.000000000");
 });
 test("late old events do not enter the new session", () => {
   const a = new Aggregator(["uid"], minute+1000);

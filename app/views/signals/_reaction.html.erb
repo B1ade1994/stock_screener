@@ -1,0 +1,23 @@
+<% reaction = signal.reaction %>
+<% if reaction %>
+  <div class="signal-reaction">
+    <p class="muted">После уведомления · отсчёт <%= reaction.reference_at.in_time_zone.strftime('%d.%m %H:%M') %><% if reaction.reference_price %> · цена <%= number_with_precision(reaction.reference_price, precision: 4, strip_insignificant_zeros: true) %><% end %></p>
+    <div class="reaction-outcomes">
+      <% SignalReaction::HORIZONS.each do |minutes| %>
+        <% result = reaction.results[minutes.to_s] %>
+        <% if result && result['status'] == 'measured' %>
+          <% change = result.fetch('change_percent') %>
+          <span class="reaction-outcome <%= change.positive? ? 'price-up' : change.negative? ? 'price-down' : '' %>"
+                title="Цена <%= result.fetch('price') %>; максимум <%= signed_percent(result.fetch('high_percent')) %>, минимум <%= signed_percent(result.fetch('low_percent')) %>; свечей <%= result.fetch('candles') %>/<%= minutes %>">
+            <%= minutes %> мин: <strong><%= signed_percent(change) %></strong>
+          </span>
+        <% elsif result %>
+          <span class="reaction-outcome" title="<%= result.fetch('reason') %>"><%= minutes %> мин: нет данных</span>
+        <% else %>
+          <span class="reaction-outcome"><%= minutes %> мин: ожидаем</span>
+        <% end %>
+      <% end %>
+    </div>
+    <% if reaction.last_error.present? %><p class="muted">История временно недоступна. Повторим загрузку.</p><% end %>
+  </div>
+<% end %>

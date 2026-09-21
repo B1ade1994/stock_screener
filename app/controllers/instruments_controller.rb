@@ -18,7 +18,7 @@ class InstrumentsController < ApplicationController
     @instrument = Instrument.find(params[:id])
     @levels = @instrument.price_levels.active.order(:timeframe, :price)
     @level_strength = LevelStrength.new(@levels)
-    @signals = @instrument.signals.order(occurred_at: :desc).limit(30)
+    @signals = @instrument.signals.includes(:reaction).recent_activity.limit(30)
     @timeframe = %w[day week].include?(params[:timeframe]) ? params[:timeframe] : "day"
     @candles = @instrument.candles.where(timeframe: @timeframe).order(:time).to_a
     @chart_start_index = 0
@@ -33,6 +33,11 @@ class InstrumentsController < ApplicationController
     instrument = Instrument.find(params[:id])
     response.headers["Cache-Control"] = "no-store"
     render json: { price: instrument.last_price, traded_at: instrument.last_trade_at&.iso8601 }
+  end
+
+  def events
+    @instrument = Instrument.find(params[:id])
+    @signals = @instrument.signals.includes(:reaction).recent_activity.limit(30)
   end
 
   def update

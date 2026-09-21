@@ -32,4 +32,15 @@ RSpec.describe Instrument, type: :model do
     expect(described_class.watched.order(:id).pluck(:uid)).to eq(subscription_ids)
   end
 
+  it "watches supported spot metals without expiration and rejects other currency instruments" do
+    %w[GLDRUB_TOM SLVRUB_TOM].each do |ticker|
+      metal = create_instrument(ticker: ticker, kind: "currency", class_code: "CETS")
+      expect(metal).to be_metal
+      expect(metal.kind_label).to eq("Драгметалл")
+      expect(described_class.watched).to include(metal)
+      expect(metal.update(ticker: "CNYRUB_TOM")).to be false
+      expect(metal.update(ticker: ticker, class_code: "OTHER")).to be false
+    end
+  end
+
 end

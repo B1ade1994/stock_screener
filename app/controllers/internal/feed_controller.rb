@@ -17,11 +17,12 @@ module Internal
             next unless item[:session].to_s.match?(/\A[0-9a-f-]{36}\z/)
             values = %i[buy sell unknown trades].to_h { |key| [key, Integer(item.fetch(key))] }
             next if values.values.any?(&:negative?)
+            prices = %i[open_price close_price].to_h { |key| [key, minute_price(item[key])] }
             bar = instrument.market_minutes.find_or_initialize_by(time: time, session: item[:session])
             next if bar.persisted? && values[:trades] < bar.trades
             complete = item[:complete] == true && time + 95 <= Time.current
             next if bar.persisted? && values[:trades] == bar.trades && bar.complete == complete
-            bar.assign_attributes(values.merge(complete: complete))
+            bar.assign_attributes(values.merge(prices).merge(complete: complete))
             bar.save!
             SignalEvaluator.volume(instrument, bar) if complete && params[:status] == "connected"
           end
@@ -38,6 +39,12 @@ module Internal
       head :no_content
     end
     private
+    def minute_price(value)
+      price = BigDecimal(value.to_s) if value.present?
+      price if price&.finite? && price.positive?
+    rescue ArgumentError
+      nil
+    end
     def authenticate
       expected = ENV["INTERNAL_API_TOKEN"].to_s
       actual = request.headers["Authorization"].to_s.delete_prefix("Bearer ")

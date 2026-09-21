@@ -80,6 +80,20 @@ td .autosave-error { color: #a4614b; max-width: 240px; }
 
 .signal-actions { display: flex; align-items: center; gap: 10px; }
 .signal-actions form { margin: 0; }
+.signal-content { min-width: 0; }
+.signal-symbol.price-down { background: #f9eeea; color: #a4614b; }
+.signal-symbol.price-flat { background: #f1f4f5; color: var(--muted); }
+.event-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.event-filter { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; color: #527079; font-size: 11px; }
+.event-filter:hover, .event-filter.active { background: #edf7f4; border-color: #b4dcd4; color: var(--teal); }
+.episode-bursts { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.episode-bursts summary { cursor: pointer; width: fit-content; }
+.episode-bursts th, .episode-bursts td { padding: 6px 10px; font-size: 11px; }
+.signal-reaction { margin-top: 10px; }
+.reaction-outcomes { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: var(--muted); }
+.reaction-outcome { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reaction-outcome.price-up { color: var(--teal); }
+.reaction-outcome.price-down { color: #a4614b; }
 .signal-list:has(> .signal) > .empty { display: none; }
 .sound-toggle { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; }
 .sound-toggle[aria-pressed="true"] .sound-muted, .sound-toggle[aria-pressed="false"] .sound-waves { display: none; }

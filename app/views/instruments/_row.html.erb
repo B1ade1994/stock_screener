@@ -2,7 +2,7 @@
   <td>
     <%= link_to instrument.ticker, instrument_path(instrument), class: "ticker", data: { turbo_frame: "_top" } %>
     <span class="instrument-name"><%= instrument.name %></span>
-    <span class="badge"><%= instrument.future? ? "Фьючерс · #{instrument.expiration_date}" : 'Акция' %></span>
+    <span class="badge"><%= instrument.future? ? "Фьючерс · #{instrument.expiration_date}" : instrument.kind_label %></span>
   </td>
   <td class="numeric">
     <%= instrument.last_price ? number_with_precision(instrument.last_price, precision: 4, strip_insignificant_zeros: true, delimiter: ' ') : '—' %>

@@ -37,7 +37,7 @@ RSpec.describe "Internal market feed", type: :request do
         uid: instrument.uid,
         price: "120.5",
         trade_time: 1.second.ago.iso8601,
-        bars: [{ time: 2.minutes.ago.iso8601, session: SecureRandom.uuid, buy: 30, sell: 10, unknown: 0, trades: 4, complete: true }]
+        bars: [{ time: 2.minutes.ago.iso8601, session: SecureRandom.uuid, buy: 30, sell: 10, unknown: 0, trades: 4, open_price: "119.5", close_price: "120.5", complete: true }]
       }]
     }
 
@@ -47,7 +47,7 @@ RSpec.describe "Internal market feed", type: :request do
         expect(response).to have_http_status(:no_content)
       end
     end.to change(MarketMinute, :count).by(1)
-    expect(MarketMinute.last.buy).to eq(30)
+    expect(MarketMinute.last).to have_attributes(buy: 30, open_price: BigDecimal("119.5"), close_price: BigDecimal("120.5"))
     expect(instrument.reload.last_price).to eq(BigDecimal("120.5"))
 
     payload[:instruments][0].merge!(price: "1", trade_time: 5.minutes.ago.iso8601)
@@ -55,4 +55,27 @@ RSpec.describe "Internal market feed", type: :request do
     expect(response).to have_http_status(:no_content)
     expect(instrument.reload.last_price).to eq(BigDecimal("120.5"))
   end
+
+  it "rejects invalid minute prices without rejecting valid volume" do
+    post "/internal/ingest", headers: headers, as: :json, params: {
+      status: "connected", instruments: [{ uid: instrument.uid,
+        bars: [{ time: 2.minutes.ago.iso8601, session: SecureRandom.uuid, buy: 30, sell: 10, unknown: 0, trades: 4,
+          open_price: "not-a-price", close_price: "NaN", complete: true }] }]
+    }
+    expect(response).to have_http_status(:no_content)
+    expect(instrument.market_minutes.last).to have_attributes(open_price: nil, close_price: nil)
+  end
+  it "subscribes to gold by UID and ingests its minute volumes and price" do
+    instrument.update!(ticker: "GLDRUB_TOM", kind: "currency", class_code: "CETS")
+    get "/internal/watchlist", headers: headers
+    expect(response.parsed_body.fetch("instruments")).to include(instrument.uid)
+    post "/internal/ingest", headers: headers, as: :json, params: {
+      status: "connected", instruments: [{ uid: instrument.uid, price: "11829.5", trade_time: 1.second.ago.iso8601,
+        bars: [{ time: 2.minutes.ago.iso8601, session: SecureRandom.uuid, buy: 30, sell: 10, unknown: 0, trades: 4, complete: true }] }]
+    }
+    expect(response).to have_http_status(:no_content)
+    expect(instrument.reload.last_price).to eq(BigDecimal("11829.5"))
+    expect(instrument.market_minutes.last).to have_attributes(buy: 30, sell: 10, complete: true)
+  end
+
 end
