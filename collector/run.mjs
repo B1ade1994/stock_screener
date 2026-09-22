@@ -12,6 +12,7 @@ async function api(path, body) {
 }
 let socket, aggregator, wanted = "", connected = false, lastMessage = 0, lastPing = 0, lastDelivery = Date.now(), nextRetry = 0, retry = 1000, message = "Ожидаем список инструментов";
 function disconnect(reason) {
+  console.warn(JSON.stringify({ event: "collector_disconnected", at: new Date().toISOString(), reason, session: aggregator?.session || null, session_ms: aggregator ? Date.now() - aggregator.started : null, silence_ms: Date.now() - lastMessage, delivery_gap_ms: Date.now() - lastDelivery }));
   connected = false; message = reason; aggregator = null;
   const old = socket; socket = null;
   if (old) old.close();
@@ -20,7 +21,7 @@ function disconnect(reason) {
 function connect(uids) {
   lastMessage = Date.now(); message = "Подключение к Т-Инвестициям";
   const current = new WebSocket(endpoint, ["json", token]); socket = current;
-  current.onopen = () => current.send(JSON.stringify({ subscribeTradesRequest: { subscriptionAction: "SUBSCRIPTION_ACTION_SUBSCRIBE", instruments: uids.map(instrumentId => ({ instrumentId })), tradeSource: "TRADE_SOURCE_EXCHANGE" } }));
+  current.onopen = () => socket === current && current.send(JSON.stringify({ subscribeTradesRequest: { subscriptionAction: "SUBSCRIPTION_ACTION_SUBSCRIBE", instruments: uids.map(instrumentId => ({ instrumentId })), tradeSource: "TRADE_SOURCE_EXCHANGE" } }));
   current.onmessage = event => {
     if (socket !== current) return;
     lastMessage = Date.now();
@@ -34,13 +35,18 @@ function connect(uids) {
         if (!ok) { disconnect("Подписка отклонена API; проверьте доступность инструментов"); return; }
         current.send(JSON.stringify({ ping: { time: new Date().toISOString() } }));
         lastPing = Date.now();
-        aggregator = new Aggregator(uids); connected = true; retry = 1000; message = "Поток биржевых сделок подключён";
+        // A repeated acknowledgement must not erase an already live baseline.
+        if (!connected) {
+          aggregator = new Aggregator(uids); connected = true; retry = 1000;
+          console.info(JSON.stringify({ event: "collector_connected", at: new Date().toISOString(), session: aggregator.session, instruments: uids.length }));
+        }
+        message = "Поток биржевых сделок подключён";
       }
       if (payload.trade && connected) aggregator.trade(payload.trade);
     } catch { disconnect("Некорректное сообщение потока"); }
   };
   current.onerror = () => { if (socket === current) disconnect("Ошибка соединения с Т-Инвестициями"); };
-  current.onclose = () => { if (socket === current) disconnect("Соединение закрыто; переподключаемся"); };
+  current.onclose = event => { if (socket === current) disconnect(`Соединение закрыто (код ${event.code}, clean=${event.wasClean}); переподключаемся`); };
 }
 let nextWatchlist = 0;
 while (true) {
@@ -52,7 +58,7 @@ while (true) {
       if (instruments.length && !socket && Date.now() >= nextRetry) connect(instruments);
       nextWatchlist = Date.now() + 10000;
     }
-    if (Date.now() - lastDelivery > 15000) disconnect("Пауза доставки данных; прогрев начнётся заново");
+    if (connected && Date.now() - lastDelivery > 15000) disconnect("Пауза доставки данных; прогрев начнётся заново");
     if (connected && socket && Date.now() - lastPing > 10000) {
       socket.send(JSON.stringify({ ping: { time: new Date().toISOString() } }));
       lastPing = Date.now();

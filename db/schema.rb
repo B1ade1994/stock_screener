@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_22_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_22_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -57,6 +57,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000100) do
     t.string "name", null: false
     t.integer "position", null: false
     t.boolean "reversal_enabled", default: true, null: false
+    t.datetime "reversal_history_checked_at"
+    t.string "reversal_history_error"
     t.string "ticker", null: false
     t.string "uid", null: false
     t.datetime "updated_at", null: false
@@ -105,6 +107,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000100) do
     t.index ["instrument_id"], name: "index_price_levels_on_instrument_id"
   end
 
+  create_table "reversal_minutes", force: :cascade do |t|
+    t.decimal "close_price", precision: 24, scale: 9, null: false
+    t.string "data_source", null: false
+    t.decimal "high_price", precision: 24, scale: 9, null: false
+    t.bigint "instrument_id", null: false
+    t.decimal "low_price", precision: 24, scale: 9, null: false
+    t.decimal "open_price", precision: 24, scale: 9, null: false
+    t.string "source_session"
+    t.datetime "time", null: false
+    t.bigint "volume", null: false
+    t.index ["instrument_id", "time"], name: "index_reversal_minutes_on_instrument_id_and_time", unique: true
+    t.index ["instrument_id"], name: "index_reversal_minutes_on_instrument_id"
+  end
+
   create_table "signal_reactions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "last_error"
@@ -139,6 +155,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000100) do
   add_foreign_key "candles", "instruments"
   add_foreign_key "market_minutes", "instruments"
   add_foreign_key "price_levels", "instruments"
+  add_foreign_key "reversal_minutes", "instruments"
   add_foreign_key "signal_reactions", "signals", on_delete: :cascade
   add_foreign_key "signals", "instruments"
 end

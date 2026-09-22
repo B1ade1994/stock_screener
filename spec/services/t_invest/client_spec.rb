@@ -34,8 +34,8 @@ RSpec.describe TInvest::Client do
   it "requests exchange minute candles and excludes unfinished data without a rejected limit parameter" do
     from = Time.utc(2026, 9, 21, 10)
     quote = { "units" => "100", "nano" => 500_000_000 }
-    candle = %w[open high low close].to_h { |field| [field, quote] }.merge("time" => from.iso8601, "isComplete" => true)
+    candle = %w[open high low close].to_h { |field| [field, quote] }.merge("time" => from.iso8601, "isComplete" => true, "volume" => "123")
     expect(client).to receive(:call).with("MarketDataService/GetCandles", { instrumentId: "uid", from: from.iso8601, to: (from + 1.hour).iso8601, interval: "CANDLE_INTERVAL_1_MIN", candleSourceType: "CANDLE_SOURCE_EXCHANGE" }).and_return("candles" => [candle, candle.merge("isComplete" => false)])
-    expect(client.minute_candles("uid", from: from, to: from + 1.hour)).to eq([{ time: from, open: 100.5.to_d, high: 100.5.to_d, low: 100.5.to_d, close: 100.5.to_d }])
+    expect(client.minute_candles("uid", from: from, to: from + 1.hour)).to eq([{ time: from, volume: 123, open: 100.5.to_d, high: 100.5.to_d, low: 100.5.to_d, close: 100.5.to_d }])
   end
 end

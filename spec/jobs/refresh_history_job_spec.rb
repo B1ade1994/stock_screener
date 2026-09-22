@@ -33,7 +33,7 @@ RSpec.describe RefreshHistoryJob, type: :job do
 
     before do
       %w[day week].each do |timeframe|
-        instrument.price_levels.create!(source: "manual", side: "resistance", timeframe: timeframe, price: 100, created_at: 10.days.ago)
+        create_strong_level(instrument, timeframe: timeframe, created_at: 10.days.ago)
       end
     end
 

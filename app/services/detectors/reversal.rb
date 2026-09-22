@@ -1,8 +1,8 @@
 module Detectors
   # Versioned starting rules, not calibrated trading recommendations. Uses only
-  # completed streamed OHLC minutes before or at the time of detection.
+  # validated completed OHLCV minutes before or at the time of detection.
   class Reversal
-    VERSION = 1
+    VERSION = 2
     BASELINE = 20
     REBOUND = 3
     WINDOWS = [5, 60, 120, 240, 480].freeze
@@ -19,7 +19,7 @@ module Detectors
       WINDOWS.reverse_each do |minutes|
         window = bars.last(BASELINE + minutes + REBOUND)
         next unless window.size == BASELINE + minutes + REBOUND
-        next unless window.all? { |b| valid_bar?(b) && b.session == window.last.session && b.time.in_time_zone.to_date == window.last.time.in_time_zone.to_date }
+        next unless window.all? { |b| valid_bar?(b) && b.time.in_time_zone.to_date == window.last.time.in_time_zone.to_date }
         next unless window.each_cons(2).all? { |a, b| b.time - a.time == 60 }
         baseline = window.first(BASELINE)
         impulse = window.slice(BASELINE, minutes)
@@ -30,10 +30,10 @@ module Detectors
         end
         volatility = ranges.sum / BASELINE
         next unless volatility.positive?
-        volumes = baseline.map { |b| b.buy + b.sell + b.unknown }.sort
+        volumes = baseline.map(&:volume).sort
         median_volume = (volumes[9] + volumes[10]) / 2.0
         next unless median_volume.positive?
-        rebound_volume = rebound.sum { |b| b.buy + b.sell + b.unknown }
+        rebound_volume = rebound.sum(&:volume)
         relative_volume = rebound_volume / (median_volume * REBOUND)
         next unless rebound_volume >= 10 && relative_volume >= 1.5
 
@@ -63,7 +63,7 @@ module Detectors
           rebound_percent: ((rebound.last.close_price.to_f - finish) / finish * 100).round(2),
           retracement_percent: (retracement * 100).round(1), relative_volume: relative_volume.round(2),
           volatility: volatility, extreme: extreme, entry_price: rebound.last.close_price.to_s,
-          session: window.last.session, last_checked_at: window.last.time.iso8601, confirmation_closes: 0
+          history_source: "completed_ohlcv", last_checked_at: window.last.time.iso8601, confirmation_closes: 0
         }
       end
       nil

@@ -9,6 +9,7 @@ class Instrument < ApplicationRecord
   has_many :candles, dependent: :delete_all
   has_many :price_levels, dependent: :destroy
   has_many :market_minutes, dependent: :delete_all
+  has_many :reversal_minutes, dependent: :delete_all
   has_many :signals, class_name: "MarketSignal", dependent: :delete_all
   validates :uid, :ticker, :name, :class_code, :currency, presence: true
   validates :uid, uniqueness: true

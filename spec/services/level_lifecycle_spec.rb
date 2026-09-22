@@ -1,7 +1,7 @@
 require "rails_helper"
 RSpec.describe LevelLifecycle do
   let(:instrument) { create_instrument }
-  let!(:level) { instrument.price_levels.create!(price: 100, lower_price: 99, upper_price: 101, atr: 10, timeframe: "day", side: "resistance", source: "manual", created_at: 30.days.ago) }
+  let!(:level) { create_strong_level(instrument, lower_price: 99, upper_price: 101, atr: 10, created_at: 30.days.ago) }
   def bars(prices)
     prices.each_with_index.map { |v,i| Candle.new(time: 20.days.ago.beginning_of_day + i.days, open: v, close: v, high: v + 0.5, low: v - 0.5) }
   end
@@ -15,6 +15,42 @@ RSpec.describe LevelLifecycle do
     expect(level.reload).to have_attributes(status: "confirmed", side: "resistance", breakout: {})
     expect(MarketSignal.last.details).to include("upper" => "101.0", "buffer" => "1.0")
   end
+  it "updates a weak zone lifecycle silently, including its changed role" do
+    level.update!(assessment: { version: Detectors::Levels::VERSION, score: 15 })
+    rows = bars([100, 104, 104])
+    rows.last.low = 101
+    run(rows)
+    expect(MarketSignal.count).to eq(0)
+    expect(level.reload).to have_attributes(status: 'confirmed', side: 'support')
+    level.update!(assessment: { version: Detectors::Levels::VERSION, score: 40 })
+    run(rows)
+    expect(MarketSignal.count).to eq(0)
+  end
+
+  it "keeps the initial high grade for follow-ups even when the peer set changes" do
+    rows = bars([100, 104, 101])
+    run(rows.first(2))
+    expect(level.reload.breakout['strength_grade']).to eq(3)
+    instrument.price_levels.where.not(id: level.id).delete_all
+    run(rows)
+    expect(MarketSignal.order(:id).pluck(:kind)).to eq(%w[confirmed failed_breakout])
+    expect(MarketSignal.last.details['strength_grade']).to eq(3)
+  end
+
+  it "finishes legacy scenarios with unknown initial strength without new alerts" do
+    rows = bars([100, 104, 101])
+    run(rows.first(2))
+    level.update!(breakout: level.reload.breakout.except('strength_grade'))
+    expect { run(rows) }.not_to change(MarketSignal, :count)
+    expect(level.reload.status).to eq('confirmed')
+  end
+
+  it "does not alert for manual levels" do
+    level.update!(source: 'manual')
+    run(bars([100, 104, 101]))
+    expect(MarketSignal.count).to eq(0)
+  end
+
   it "uses frozen boundaries for a pending breakout" do
     rows = bars([100, 104])
     run(rows)

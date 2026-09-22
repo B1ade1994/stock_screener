@@ -18,12 +18,18 @@ RSpec.describe Detectors::Reversal do
     expect(described_class.evaluate(bars: reversal_bars(minutes: 60))).to include(scenario: 'sustained', impulse_minutes: 60)
   end
 
-  it 'rejects gaps, mixed sessions, incomplete minutes and old minutes without OHLC' do
-    [->(b) { b.time -= 60 }, ->(b) { b.session = 'different' }, ->(b) { b.complete = false }, ->(b) { b.low_price = nil }].each do |corrupt|
+  it 'rejects gaps, incomplete minutes and old minutes without OHLC' do
+    [->(b) { b.time -= 60 }, ->(b) { b.complete = false }, ->(b) { b.low_price = nil }].each do |corrupt|
       bars = reversal_bars
       corrupt.call(bars[10])
       expect(described_class.evaluate(bars: bars)).to be_nil
     end
+  end
+
+  it 'accepts validated complete minutes across connections' do
+    bars = reversal_bars(minutes: 60)
+    bars.last(20).each { |bar| bar.session = SecureRandom.uuid }
+    expect(described_class.evaluate(bars: bars)).to include(impulse_minutes: 60)
   end
 
   it 'does not combine two calendar days or accept an insufficient baseline' do

@@ -8,7 +8,7 @@ RSpec.describe ReversalTracker do
 
   def seed(direction: 'up')
     bars = reversal_bars(direction: direction)
-    bars.each { |b| b.instrument = instrument; b.save! }
+    bars.each { |b| b.instrument = instrument; b.save!; ReversalMinute.record_stream(instrument, b) }
     described_class.process(instrument, bars.last)
     [instrument.signals.find_by(kind: 'reversal'), bars.last]
   end
@@ -68,9 +68,13 @@ RSpec.describe ReversalTracker do
     expect(signal.reload.reversal_status).to eq('cancelled')
   end
 
-  it 'expires after a missing minute rather than counting nonconsecutive closes' do
+  it 'waits for a missing minute rather than counting nonconsecutive closes' do
     signal, last = seed
     follow(last, offset: 2)
+    expect(signal.reload.reversal_status).to eq('possible')
+    expect(signal.details['confirmation_closes']).to eq(0)
+    travel 15.minutes
+    ExpireReversalsJob.perform_now
     expect(signal.reload.reversal_status).to eq('expired')
   end
 
@@ -80,11 +84,23 @@ RSpec.describe ReversalTracker do
     expect(signal).to be_nil
   end
 
-  it 'expires safely when the session changes' do
+  it 'preserves confirmation through a session change with complete consecutive minutes' do
     signal, last = seed
-    follow(last, session: SecureRandom.uuid)
-    expect(signal.reload.reversal_status).to eq('expired')
-    expect(signal.details['status_reason']).to include('Прерван')
+    last = follow(last, session: SecureRandom.uuid)
+    expect(signal.reload.reversal_status).to eq('possible')
+    follow(last)
+    expect(signal.reload.reversal_status).to eq('confirmed')
+  end
+
+  it 'replays recovered minutes in order and cancels before a later confirming close' do
+    signal, last = seed
+    follow(last, offset: 2)
+    expect(signal.reload.reversal_status).to eq('possible')
+    instrument.reversal_minutes.create!(time: last.time + 1.minute, data_source: 't_invest',
+      open_price: 99.4, close_price: 99.5, high_price: 99.6, low_price: 98.8, volume: 100)
+    described_class.process(instrument, instrument.reversal_minutes.order(:time).last, recheck: true)
+    expect(signal.reload.reversal_status).to eq('cancelled')
+    expect(signal.details['status_at']).to eq((last.time + 2.minutes).iso8601)
   end
 
   it 'expires at the deadline without accepting a late confirmation' do
@@ -110,6 +126,8 @@ RSpec.describe ReversalTracker do
     follow(last, low: 98.8)
     later = reversal_bars(at: last.time + 28.minutes)
     later.each { |b| b.instrument = instrument; b.save! }
+    travel_to later.last.time + 96.seconds
+    later.each { |b| ReversalMinute.record_stream(instrument, b) }
     travel_to later.last.time + 96.seconds
     described_class.process(instrument, later.last)
     expect(instrument.signals.count).to eq(1)

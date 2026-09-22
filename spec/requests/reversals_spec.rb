@@ -8,7 +8,7 @@ RSpec.describe 'Reversal events', type: :request do
   it 'ingests OHLC and creates exactly one reversal independently from volume' do
     instrument = create_instrument(volume_enabled: false)
     bars = reversal_bars
-    bars[0...-1].each { |b| b.instrument = instrument; b.save! }
+    bars[0...-1].each { |b| b.instrument = instrument; b.save!; ReversalMinute.record_stream(instrument, b) }
     old_token = ENV['INTERNAL_API_TOKEN']
     ENV['INTERNAL_API_TOKEN'] = 'test-reversal'
     payload = { status: 'connected', instruments: [{ uid: instrument.uid, bars: [bars.last.attributes.except('id', 'instrument_id')] }] }

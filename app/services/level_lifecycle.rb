@@ -4,7 +4,11 @@ class LevelLifecycle
 
   def self.call(instrument:, timeframe:, candles:)
     enabled = instrument.enabled? && instrument.breakout_enabled?
-    instrument.price_levels.active.where(timeframe: timeframe).find_each do |level|
+    levels = instrument.price_levels.active.where(timeframe: timeframe).to_a
+    strength = LevelStrength.new(levels)
+    # Snapshot grades before any lifecycle transitions change the comparison set.
+    grades = levels.to_h { |level| [level.id, strength.call(level).grade] }
+    levels.each do |level|
       unless enabled
         # Disabling alerts cancels pending scenarios and advances the cursor, without a later replay.
         level.update!(evaluated_at: candles.last&.time, breakout: {}, status: level.status == "broken" ? "confirmed" : level.status)
@@ -16,7 +20,7 @@ class LevelLifecycle
           advance(instrument, level, candle, context: MarketIndicators.context(candles.first(index + 1), timeframe))
         elsif level.status == "confirmed" && level.crossed?(candles[index - 1].close, candle.close)
           state = { "lower" => level.lower_bound.to_s, "upper" => level.upper_bound.to_s,
-            "buffer" => level.breakout_buffer.to_s, "side" => level.side, "started_at" => candle.time.iso8601, "bars" => 0 }
+            "buffer" => level.breakout_buffer.to_s, "side" => level.side, "started_at" => candle.time.iso8601, "bars" => 0, "strength_grade" => grades[level.id] }
           emit(instrument, level, candle, "confirmed", "Закрытие за зоной: ожидаем удержания или ретеста", state, context: MarketIndicators.context(candles.first(index + 1), timeframe))
           level.update!(status: "broken", breakout: state)
         end
@@ -52,9 +56,12 @@ class LevelLifecycle
   end
 
   def self.emit(instrument, level, candle, kind, title, state, context:)
+    # Keep all zones structurally up to date, but alert only on scenarios that
+    # started at high strength. Legacy scenarios without a recorded grade are silent.
+    return unless state["strength_grade"] == 3
     MarketSignal.find_or_create_by!(event_key: "#{kind}:#{level.id}:#{state['started_at']}:#{candle.time.to_i}") do |signal|
       signal.assign_attributes(instrument: instrument, kind: kind, occurred_at: Time.current, title: title,
-        details: { trend: context, level_id: level.id, level: level.price.to_s, lower: state["lower"], upper: state["upper"], buffer: state["buffer"],
+        details: { strength_grade: state["strength_grade"], trend: context, level_id: level.id, level: level.price.to_s, lower: state["lower"], upper: state["upper"], buffer: state["buffer"],
           close: candle.close.to_s, side: state["side"], timeframe: level.timeframe, candle_time: candle.time.iso8601,
           breakout_started_at: state["started_at"], confirmation: "#{level.timeframe == 'week' ? '1W' : '1D'} · свеча #{candle.time.in_time_zone.strftime('%d.%m.%Y')}" })
     end

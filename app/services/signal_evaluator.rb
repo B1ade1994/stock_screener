@@ -9,10 +9,13 @@ class SignalEvaluator
   def self.crossings(instrument, price, time)
     return unless instrument.enabled? && instrument.breakout_enabled? && time > 30.seconds.ago
     return unless instrument.last_trade_at && time > instrument.last_trade_at && time - instrument.last_trade_at < 120
-    instrument.price_levels.alertable.each do |level|
+    levels = instrument.price_levels.alertable.to_a
+    strength = LevelStrength.new(levels)
+    levels.each do |level|
+      next unless strength.call(level).grade == 3
       next if level.last_alert_at && level.last_alert_at > 6.hours.ago
       next unless level.crossed?(instrument.last_price, price)
-      MarketSignal.create!(instrument: instrument, kind: "crossing", event_key: "crossing:#{level.id}:#{time.to_f}", occurred_at: time, title: "Пересечение #{level.timeframe == 'week' ? 'недельного' : 'дневного'} уровня", details: { lower: level.lower_bound.to_s, upper: level.upper_bound.to_s, buffer: level.breakout_buffer.to_s, level: level.price.to_s, price: price.to_s, side: level.side, timeframe: level.timeframe, confirmation: "Ожидает закрытия свечи" })
+      MarketSignal.create!(instrument: instrument, kind: "crossing", event_key: "crossing:#{level.id}:#{time.to_f}", occurred_at: time, title: "Пересечение #{level.timeframe == 'week' ? 'недельного' : 'дневного'} уровня", details: { level_id: level.id, strength_grade: 3, lower: level.lower_bound.to_s, upper: level.upper_bound.to_s, buffer: level.breakout_buffer.to_s, level: level.price.to_s, price: price.to_s, side: level.side, timeframe: level.timeframe, confirmation: "Ожидает закрытия свечи" })
       level.update!(last_alert_at: time)
     end
   end

@@ -50,7 +50,7 @@ module TInvest
     def minute_candles(uid, from:, to:)
       call("MarketDataService/GetCandles", { instrumentId: uid, from: from.utc.iso8601, to: to.utc.iso8601, interval: "CANDLE_INTERVAL_1_MIN", candleSourceType: "CANDLE_SOURCE_EXCHANGE" })
         .fetch("candles", []).select { |c| c["isComplete"] == true }.map do |candle|
-          { time: Time.iso8601(candle.fetch("time")) }.merge(%w[open high low close].to_h { |field| [field.to_sym, self.class.number(candle.fetch(field))] })
+          { time: Time.iso8601(candle.fetch("time")), volume: candle["volume"]&.then { |v| Integer(v) } }.merge(%w[open high low close].to_h { |field| [field.to_sym, self.class.number(candle.fetch(field))] })
         end
     end
     private
