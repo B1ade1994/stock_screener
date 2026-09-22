@@ -1,0 +1,5 @@
+<% d = signal.details %>
+<span class="badge reversal-status reversal-status-<%= signal.reversal_status %> <%= 'amber' if signal.reversal_status == 'possible' %>"><%= ReversalTracker::LABELS.fetch(signal.reversal_status, signal.reversal_status) %></span>
+<p><%= d['scenario'] == 'sharp' ? 'После резкого движения' : 'После длительного движения' %> · за <%= d['impulse_minutes'] %> мин: <%= signed_percent(d['impulse_percent'].to_f) %> → обратно за 3 мин: <%= signed_percent(d['rebound_percent'].to_f) %> · объём ×<%= d['relative_volume'] %></p>
+<p>Возврат <%= d['retracement_percent'] %>% движения · цена сигнала <%= signal_price(d['entry_price']) %> · экстремум <%= signal_price(d['extreme']) %></p>
+<p class="muted"><%= d['status_reason'] || 'Ожидаем два следующих закрытия с продолжением движения; срок — до 10 минут' %></p>

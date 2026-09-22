@@ -1,5 +1,8 @@
 module ApplicationHelper
   def signal_symbol(signal)
+    if signal.kind == 'reversal'
+      return signal.details['direction'] == 'up' ? ['⤴', 'price-up', 'Откуп после снижения'] : ['⤵', 'price-down', 'Продажи после роста']
+    end
     return ["⌁", nil, nil] unless signal.kind == "volume"
     case signal.price_direction
     when "up" then ["↗", "price-up", "Цена выросла за аномальную минуту или эпизод"]

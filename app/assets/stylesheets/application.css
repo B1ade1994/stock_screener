@@ -98,3 +98,6 @@ td .autosave-error { color: #a4614b; max-width: 240px; }
 .sound-toggle { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; }
 .sound-toggle[aria-pressed="true"] .sound-muted, .sound-toggle[aria-pressed="false"] .sound-waves { display: none; }
 @media(max-width:760px) { .signal-actions { flex-direction: column; align-items: flex-end; gap: 6px; } }
+
+.reversal-status-cancelled { color: #a4614b; background: #f9eeea; }
+.reversal-status-expired { color: var(--muted); background: #f1f4f5; }

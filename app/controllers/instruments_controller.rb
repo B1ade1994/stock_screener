@@ -42,7 +42,7 @@ class InstrumentsController < ApplicationController
 
   def update
     @instrument = Instrument.find(params[:id])
-    saved = @instrument.update(params.require(:instrument).permit(:enabled, :volume_enabled, :breakout_enabled, :volume_multiplier, :minimum_volume))
+    saved = @instrument.update(params.require(:instrument).permit(:enabled, :volume_enabled, :breakout_enabled, :reversal_enabled, :volume_multiplier, :minimum_volume))
     @save_error = @instrument.errors.full_messages.join(", ") unless saved
 
     if request.format.turbo_stream? && request.headers["Turbo-Frame"] == "dashboard"

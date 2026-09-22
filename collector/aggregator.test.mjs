@@ -24,6 +24,8 @@ test("minute open and close follow exchange time when trades arrive out of order
   const bar = a.snapshot(minute+32000)[0].bars[0];
   assert.equal(bar.open_price,"100.000000000");
   assert.equal(bar.close_price,"99.000000000");
+  assert.equal(bar.high_price,"102.000000000");
+  assert.equal(bar.low_price,"99.000000000");
 });
 test("late old events do not enter the new session", () => {
   const a = new Aggregator(["uid"], minute+1000);

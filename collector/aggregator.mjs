@@ -30,6 +30,10 @@ export class Aggregator {
     const field = trade.direction === "TRADE_DIRECTION_BUY" || trade.direction === 1 ? "buy" : trade.direction === "TRADE_DIRECTION_SELL" || trade.direction === 2 ? "sell" : "unknown";
     bar[field] += quantity; bar.trades++;
     const price = quotation(trade.price);
+    const nanos = BigInt(trade.price.units || 0) * 1000000000n + BigInt(trade.price.nano || 0);
+    const asNanos = value => BigInt(value.replace(".", ""));
+    if (!bar.high_price || nanos > asNanos(bar.high_price)) bar.high_price = price;
+    if (!bar.low_price || nanos < asNanos(bar.low_price)) bar.low_price = price;
     if (!bar.open_time || time < Date.parse(bar.open_time)) { bar.open_price = price; bar.open_time = trade.time; }
     if (!bar.close_time || time >= Date.parse(bar.close_time)) { bar.close_price = price; bar.close_time = trade.time; }
     if (!item.trade_time || time >= Date.parse(item.trade_time)) { item.price = quotation(trade.price); item.trade_time = trade.time; }

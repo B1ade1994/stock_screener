@@ -11,20 +11,23 @@ module Internal
         instrument = Instrument.watched.find_by(uid: raw[:uid])
         next unless instrument
         instrument.with_lock do
-          Array(raw[:bars]).first(4).each do |item|
+          Array(raw[:bars]).first(4).sort_by { |item| item[:time].to_s }.each do |item|
             time = Time.iso8601(item.fetch(:time))
             next if time < 10.minutes.ago || time > Time.current || time.sec != 0
             next unless item[:session].to_s.match?(/\A[0-9a-f-]{36}\z/)
             values = %i[buy sell unknown trades].to_h { |key| [key, Integer(item.fetch(key))] }
             next if values.values.any?(&:negative?)
-            prices = %i[open_price close_price].to_h { |key| [key, minute_price(item[key])] }
+            prices = %i[open_price close_price high_price low_price].to_h { |key| [key, minute_price(item[key])] }
             bar = instrument.market_minutes.find_or_initialize_by(time: time, session: item[:session])
             next if bar.persisted? && values[:trades] < bar.trades
             complete = item[:complete] == true && time + 95 <= Time.current
             next if bar.persisted? && values[:trades] == bar.trades && bar.complete == complete
             bar.assign_attributes(values.merge(prices).merge(complete: complete))
             bar.save!
-            SignalEvaluator.volume(instrument, bar) if complete && params[:status] == "connected"
+            if complete && params[:status] == "connected"
+              SignalEvaluator.volume(instrument, bar)
+              ReversalTracker.process(instrument, bar)
+            end
           end
           if raw[:price].present? && raw[:trade_time].present?
             time = Time.iso8601(raw[:trade_time])

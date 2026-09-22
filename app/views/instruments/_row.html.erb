@@ -8,7 +8,7 @@
     <%= instrument.last_price ? number_with_precision(instrument.last_price, precision: 4, strip_insignificant_zeros: true, delimiter: ' ') : '—' %>
     <small><%= instrument.future? ? 'пункты' : instrument.currency.upcase %></small>
   </td>
-  <% [:enabled, :volume_enabled, :breakout_enabled].each do |field| %>
+  <% [:enabled, :volume_enabled, :breakout_enabled, :reversal_enabled].each do |field| %>
     <td>
       <%= form_with model: instrument, data: { controller: "autosave", action: "turbo:submit-start->autosave#start turbo:submit-end->autosave#finish" } do |f| %>
         <%= f.check_box field, id: "#{dom_id(instrument)}_#{field}", aria: { label: "#{instrument.ticker}: #{field}" }, data: { action: "change->autosave#submit" } %>

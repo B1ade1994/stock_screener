@@ -58,7 +58,7 @@ RSpec.describe "Instrument screens", type: :request do
     page = Nokogiri::HTML(response.body)
     expect(page.at_css("h1").text).to eq("Рынок под наблюдением")
     forms = page.css("#instrument_#{instrument.id} form[data-controller='autosave']")
-    expect(forms.size).to eq(3)
+    expect(forms.size).to eq(4)
     expect(forms.map { |form| form["data-turbo-frame"] }).to all(be_nil)
   end
 

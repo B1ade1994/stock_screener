@@ -1,7 +1,9 @@
 <div class="signal-list">
-<% signals.each do |signal| %><% symbol, symbol_class, symbol_title = signal_symbol(signal) %><article class="signal" id="<%= dom_id(signal) %>"><div class="signal-symbol <%= symbol_class %>"<% if symbol_title %> title="<%= symbol_title %>" aria-label="<%= symbol_title %>"<% end %>><%= symbol %></div><div class="signal-content"><div><%= link_to signal.instrument.ticker, instrument_path(signal.instrument), class: "ticker", data: { turbo_frame: "_top" } %><span class="badge <%= signal.kind == 'crossing' ? 'amber' : '' %>"><%= { 'volume' => 'Объём', 'crossing' => 'Раннее событие', 'confirmed' => 'Закрытие свечи', 'failed_breakout' => 'Возврат в зону', 'retest' => 'Ретест', 'held_breakout' => 'Удержание' }[signal.kind] %></span></div><h3><%= signal.title %></h3>
+<% signals.each do |signal| %><% symbol, symbol_class, symbol_title = signal_symbol(signal) %><article class="signal" id="<%= dom_id(signal) %>"><div class="signal-symbol <%= symbol_class %>"<% if symbol_title %> title="<%= symbol_title %>" aria-label="<%= symbol_title %>"<% end %>><%= symbol %></div><div class="signal-content"><div><%= link_to signal.instrument.ticker, instrument_path(signal.instrument), class: "ticker", data: { turbo_frame: "_top" } %><span class="badge <%= signal.kind == 'crossing' ? 'amber' : '' %>"><%= { 'volume' => 'Объём', 'reversal' => 'Разворот', 'crossing' => 'Раннее событие', 'confirmed' => 'Закрытие свечи', 'failed_breakout' => 'Возврат в зону', 'retest' => 'Ретест', 'held_breakout' => 'Удержание' }[signal.kind] %></span></div><h3><%= signal.title %></h3>
 <% d = signal.details %>
-<% if signal.episode? %>
+<% if signal.kind == 'reversal' %>
+  <%= render 'signals/reversal', signal: signal %>
+<% elsif signal.episode? %>
   <%= render 'signals/episode', signal: signal %>
 <% else %>
   <p><% if signal.kind == 'volume' %><%= d['volume'] %> <%= signal.instrument.volume_unit %> · обычный объём <%= d['baseline'] %> · BUY <%= d['buy'] %> / SELL <%= d['sell'] %> / неизвестно <%= d['unknown'] %><% else %><%= d['side'] == 'support' ? 'Поддержка' : 'Сопротивление' %> <%= d['lower'] && d['upper'] ? "#{signal_price(d['lower'])}–#{signal_price(d['upper'])}" : signal_price(d['level']) %> · цена <%= signal_price(d['price'] || d['close']) %><% if d['confirmation'] %> · <%= d['confirmation'] %><% end %><% end %></p>

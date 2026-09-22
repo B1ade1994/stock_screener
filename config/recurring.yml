@@ -1,4 +1,7 @@
 development: &tasks
+  expire_reversals:
+    class: ExpireReversalsJob
+    schedule: every minute
   refresh_signal_reactions:
     class: RefreshSignalReactionsJob
     schedule: every minute

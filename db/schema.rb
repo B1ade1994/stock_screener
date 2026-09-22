@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_000200) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_22_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -50,11 +50,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_000200) do
     t.datetime "history_synced_at"
     t.string "kind", null: false
     t.decimal "last_price", precision: 24, scale: 9
+    t.datetime "last_reversal_minute_at"
     t.datetime "last_trade_at"
     t.integer "lot", default: 1, null: false
     t.integer "minimum_volume", default: 10, null: false
     t.string "name", null: false
     t.integer "position", null: false
+    t.boolean "reversal_enabled", default: true, null: false
     t.string "ticker", null: false
     t.string "uid", null: false
     t.datetime "updated_at", null: false
@@ -68,7 +70,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_000200) do
     t.bigint "buy", default: 0, null: false
     t.decimal "close_price", precision: 24, scale: 9
     t.boolean "complete", default: false, null: false
+    t.decimal "high_price", precision: 24, scale: 9
     t.bigint "instrument_id", null: false
+    t.decimal "low_price", precision: 24, scale: 9
     t.decimal "open_price", precision: 24, scale: 9
     t.bigint "sell", default: 0, null: false
     t.string "session", null: false
@@ -123,10 +127,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_000200) do
     t.string "kind", null: false
     t.datetime "last_occurred_at"
     t.datetime "occurred_at", null: false
+    t.string "reversal_status"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["event_key"], name: "index_signals_on_event_key", unique: true
     t.index ["instrument_id", "episode_direction", "occurred_at"], name: "index_signals_on_episode_window"
+    t.index ["instrument_id", "occurred_at"], name: "index_signals_on_reversals", where: "((kind)::text = 'reversal'::text)"
     t.index ["instrument_id"], name: "index_signals_on_instrument_id"
   end
 
