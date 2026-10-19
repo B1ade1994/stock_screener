@@ -1,0 +1,17 @@
+<% d = hint.details; setup = d.fetch('setup'); context = d['confirmation_context'] || d['touch_context'] || {} %>
+<section class="panel padded hint-card" id="<%= dom_id(hint) %>" data-hint-id="<%= hint.id %>">
+  <div class="panel-heading hint-heading"><div class="signal-symbol price-up" aria-hidden="true">↗</div>
+    <div class="hint-heading-content"><h2><%= link_to hint.instrument.ticker, instrument_path(hint.instrument), data: { turbo_frame: '_top' } %> · <%= hint.title %></h2>
+      <p><%= DirectionalHints::LABELS.fetch(hint.reversal_status, hint.reversal_status) %> · регистрация <%= hint.created_at.in_time_zone.strftime('%d.%m.%Y %H:%M') %><% if hint.confirmed_at %> · подтверждение <%= hint.confirmed_at.in_time_zone.strftime('%d.%m.%Y %H:%M') %><% end %></p>
+    </div>
+  </div>
+  <p><strong><%= context['direction'] == 'down' ? 'Контртренд' : context['direction'] == 'up' ? 'По дневному тренду' : 'Смешанный / неизвестный дневной тренд' %></strong> · поддержка <%= setup['frame'] == 'week' ? '1W' : '1D' %>: <%= signal_price(setup['lower']) %>–<%= signal_price(setup['upper']) %>.</p>
+  <p>Касание <%= Time.iso8601(setup.fetch('touch_at')).in_time_zone.strftime('%d.%m.%Y') %> · минимум <%= signal_price(setup['extreme']) %> · граница отмены <%= signal_price(d['stop']) %>.</p>
+  <% if hint.kind == IntradaySupportBounce::KIND %>
+    <p><strong>Ранний эксперимент:</strong> цена при появлении <%= signal_price(d['early_price']) %> · дневная граница подтверждения <%= signal_price(d['confirmation_boundary']) %>. Для подтверждения день должен закрыться ростом выше этой границы, без прохода за стоп. До закрытия дня идея может отмениться.</p>
+    <p class="muted">Удержание по завершённым минутам: <%= d.fetch('early_evidence', []).map { |bar| "#{Time.iso8601(bar['time']).in_time_zone.strftime('%H:%M')} — #{signal_price(bar['close'])}" }.join(' · ') %>. Раннее появление не считается входом или прибылью; результаты после дневного подтверждения учитываются отдельно.</p>
+  <% end %>
+  <% if setup['weekly_ema40'] %><p>EMA40 по завершённым неделям: <%= signal_price(setup['weekly_ema40']) %> · <%= setup['near_weekly_ema40'] ? 'рядом с минимумом касания' : 'вдали от минимума касания' %><% if setup['ema40_reclaimed'] %> · возврат выше EMA40 подтверждён дневным закрытием<% end %>. Текущая незавершённая неделя не подтверждает закрепление.</p><% else %><p class="muted">Недельная EMA40 не оценена: недостаточно завершённых недель. Это не блокирует сценарий поддержки.</p><% end %>
+  <p><%= d['status_reason'] %><% if d['confirmation_at'] %> · свеча <%= Time.iso8601(d['confirmation_at']).in_time_zone.strftime('%d.%m.%Y') %> · закрытие <%= signal_price(d['decision_price']) %><% end %>.</p>
+  <% if hint.confirmed_at %><%= render 'daily_outcomes', hint: hint %><% end %>
+</section>

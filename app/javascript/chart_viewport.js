@@ -21,7 +21,8 @@ export class ChartViewport {
     if (!bounds.length || this.left >= 900) return
     const first = this.candleAt(0, bounds.length)
     const last = this.candleAt(900 - 1e-7, bounds.length)
-    const visible = bounds.slice(first, last + 1)
+    const visible = bounds.slice(first, last + 1).filter(Boolean)
+    if (!visible.length) return
     const top = Math.min(...visible.map(bar => bar.top))
     const bottom = Math.max(...visible.map(bar => bar.bottom))
     if (!Number.isFinite(top) || !Number.isFinite(bottom)) return

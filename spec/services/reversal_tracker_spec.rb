@@ -37,7 +37,7 @@ RSpec.describe ReversalTracker do
     expect(signal.reload.reversal_status).to eq('possible')
     follow(next_bar)
     expect(signal.reload.reversal_status).to eq('confirmed')
-    expect(instrument.signals.sole.id).to eq(signal.id)
+    expect(instrument.signals.visible.sole.id).to eq(signal.id)
     expect(signal.reaction.reference_at).to eq(reference)
   end
 

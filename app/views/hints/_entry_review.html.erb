@@ -1,0 +1,6 @@
+<% if (review = hint.details['entry_review']) %>
+  <p><strong>Проверка входа:</strong> <%= review['reason'] %> · ожидание <%= review['wait_seconds'] %> сек.
+    <% if review['advance_ranges'] %> · пройдено от кандидата <%= number_with_precision(review['advance_ranges'], precision: 2) %> диапазона · до отмены <%= number_with_precision(review['risk_ranges'], precision: 2) %> диапазона<% end %>
+    <% if review['room_risk'] %> · расстояние до встречного уровня / риск <%= number_with_precision(review['room_risk'], precision: 2) %><% elsif review['level_check'] == 'no_opposing_level' %> · встречный сильный уровень не найден, цель не рассчитана<% end %>
+  </p>
+<% end %>

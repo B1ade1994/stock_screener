@@ -10,27 +10,28 @@ class ReversalTracker
     instrument.with_lock do
       return unless instrument.enabled? && instrument.reversal_enabled? && !instrument.expired?
       ReversalMinute.record_stream(instrument, bar) if bar.is_a?(MarketMinute)
+      ReversalResearch.process(instrument, bar.time)
       pending = instrument.signals.where(kind: 'reversal', reversal_status: 'possible').to_a
       pending.each { |signal| advance_from_history(instrument, signal, bar.time) }
-      return if pending.any?
       last = instrument.last_reversal_minute_at
       return if last && (bar.time < last || (bar.time == last && !recheck))
       instrument.update!(last_reversal_minute_at: bar.time)
-
-      bars = instrument.reversal_minutes
-        .where(time: bar.time.in_time_zone.beginning_of_day..bar.time)
+      bars = instrument.reversal_minutes.where(time: bar.time.in_time_zone.beginning_of_day..bar.time)
         .order(time: :desc).limit(Detectors::Reversal::WINDOWS.max + Detectors::Reversal::BASELINE + Detectors::Reversal::REBOUND).to_a.reverse
       return unless bars.last&.time == bar.time
-      details = Detectors::Reversal.evaluate(bars: bars)
-      return unless details
-      recent = instrument.signals.where(kind: 'reversal').where('occurred_at > ?', bar.time + 60 - COOLDOWN)
-      return if recent.where("details ->> 'direction' = ?", details[:direction]).exists?
-
-      key = "reversal:#{instrument.id}:#{bar.time.to_i}"
-      return if instrument.signals.exists?(event_key: key)
-      instrument.signals.create!(kind: 'reversal', reversal_status: 'possible',
-        event_key: key, occurred_at: bar.time + 60,
-        title: details[:direction] == 'up' ? 'Откуп после снижения' : 'Продажи после роста', details: details)
+      [nil, 'context_5m_v3'].each do |experiment|
+        next if pending.any? { |signal| signal.experiment == experiment }
+        details = Detectors::Reversal.evaluate(bars: bars, aggregated_context: experiment.present?)
+        next unless details
+        recent = instrument.signals.where(kind: 'reversal', experiment: experiment).where('occurred_at > ?', bar.time + 60 - COOLDOWN)
+        next if recent.where("details ->> 'direction' = ?", details[:direction]).exists?
+        key = "reversal:#{instrument.id}:#{bar.time.to_i}#{experiment ? ":#{experiment}" : ''}"
+        next if instrument.signals.exists?(event_key: key)
+        details[:structure_checked_at] = bar.time.iso8601
+        instrument.signals.create!(kind: 'reversal', reversal_status: 'possible', experiment: experiment, research_only: experiment.present?,
+          event_key: key, occurred_at: bar.time + 60,
+          title: details[:direction] == 'up' ? 'Откуп после снижения' : 'Продажи после роста', details: details)
+      end
     end
   end
 

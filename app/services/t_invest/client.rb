@@ -47,6 +47,14 @@ module TInvest
       BigDecimal(value.fetch("units", "0").to_s) + BigDecimal(value.fetch("nano", 0).to_s) / 1_000_000_000
     end
 
+    # Unfinished snapshot. Never written to the completed historical candles table.
+    def current_day_candle(uid, now: Time.current)
+      from = now.utc.beginning_of_day
+      call("MarketDataService/GetCandles", { instrumentId: uid, from: from.iso8601, to: now.utc.iso8601,
+        interval: "CANDLE_INTERVAL_DAY", candleSourceType: "CANDLE_SOURCE_EXCHANGE" })
+        .fetch("candles", []).find { |c| Time.iso8601(c.fetch("time")) == from }
+    end
+
     def minute_candles(uid, from:, to:)
       call("MarketDataService/GetCandles", { instrumentId: uid, from: from.utc.iso8601, to: to.utc.iso8601, interval: "CANDLE_INTERVAL_1_MIN", candleSourceType: "CANDLE_SOURCE_EXCHANGE" })
         .fetch("candles", []).select { |c| c["isComplete"] == true }.map do |candle|

@@ -13,7 +13,7 @@ class RefreshSignalReactionsJob < ApplicationJob
   private
 
   def refresh(reactions, now:)
-    from = reactions.map(&:reference_at).min
+    from = reactions.map(&:reference_at).min - 5.minutes
     to = [reactions.map { |r| r.reference_at + 60.minutes }.max, now - SignalReaction::SETTLE_DELAY].min
     uid = reactions.first.signal.instrument.uid
     candles = []
@@ -29,7 +29,7 @@ class RefreshSignalReactionsJob < ApplicationJob
       begin
         reaction.with_lock do
           next unless reaction.next_check_at
-          if now >= reaction.reference_at + SignalReaction::MAX_RETRY_AGE
+          if now >= reaction.recovery_deadline(SignalReaction::HORIZONS.max)
             reaction.unavailable!("Историю не удалось получить за 24 часа")
           else
             reaction.update!(last_error: error.message, next_check_at: now + 2.minutes)

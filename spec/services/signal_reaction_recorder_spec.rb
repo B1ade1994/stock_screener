@@ -45,11 +45,13 @@ RSpec.describe SignalReactionRecorder do
     expect(reaction.results.fetch("15")).to include("status" => "measured", "candles" => 14)
   end
 
-  it "marks all horizons unavailable if the initial candle is missing, including after a session closes" do
+  it "records a missing start only for elapsed horizons and schedules recovery without inventing a price" do
     described_class.call(reaction: reaction, candles: candles.drop(1), now: reference + 10.minutes)
     expect(reaction.reload.reference_price).to be_nil
     expect(reaction.results.values.map { |r| r["status"] }.uniq).to eq(["unavailable"])
-    expect(reaction.next_check_at).to be_nil
+    expect(reaction.results.keys).to eq(['5'])
+    expect(reaction.results['5']['quality_code']).to eq('missing_start')
+    expect(reaction.next_check_at).to eq(reference + 15.minutes)
   end
 
   it "tolerates deletion while an API request was in progress" do
@@ -63,4 +65,51 @@ RSpec.describe SignalReactionRecorder do
     reaction
     expect { instrument.destroy! }.to change(SignalReaction, :count).by(-1)
   end
+  it "freezes a control trend using only the five candles strictly before the reference" do
+    prior = (1..5).map { |offset| { time: reference - offset.minutes, open: 100.to_d, close: 99.to_d, high: 101.to_d, low: 98.to_d } }
+    described_class.call(reaction: reaction, candles: prior + candles, now: reference + 6.minutes)
+    expect(reaction.reload.baseline).to include('status' => 'measured', 'direction' => 'down', 'change_percent' => -1.0)
+    described_class.call(reaction: reaction, candles: candles, now: reference + 16.minutes)
+    expect(reaction.reload.baseline['direction']).to eq('down')
+  end
+
+  it "does not infer a control trend across missing preceding minutes" do
+    prior = (1..4).map { |offset| { time: reference - offset.minutes, open: 100.to_d, close: 99.to_d, high: 101.to_d, low: 98.to_d } }
+    described_class.call(reaction: reaction, candles: prior + candles, now: reference + 6.minutes)
+    expect(reaction.reload.baseline['status']).to eq('unavailable')
+    expect(reaction.results['5']['status']).to eq('measured')
+  end
+
+  it 'recovers an internal gap while preserving already complete results' do
+    missing = candles.reject { |c| c[:time] == reference + 7.minutes }
+    described_class.call(reaction: reaction, candles: missing, now: reference + 16.minutes)
+    original = reaction.reload.results['5'].deep_dup
+    expect(reaction.results['15']).to include('quality_code' => 'missing_minutes', 'missing_count' => 1,
+      'missing_at' => [(reference + 7.minutes).iso8601], 'candles' => 14)
+    expect(reaction.next_check_at).to be_present
+    described_class.call(reaction: reaction, candles: candles, now: reference + 21.minutes)
+    expect(reaction.reload.results['15']).to include('candles' => 15, 'recovered_at' => (reference + 21.minutes).iso8601)
+    expect(reaction.results['15']).not_to have_key('quality_code')
+    expect(reaction.results['5']).to eq(original)
+  end
+
+  it 'recovers an unavailable endpoint and never degrades an already observed partial window' do
+    missing = candles.reject { |c| c[:time] == reference + 4.minutes }
+    described_class.call(reaction: reaction, candles: missing, now: reference + 16.minutes)
+    expect(reaction.reload.results['5']['quality_code']).to eq('missing_end')
+    described_class.call(reaction: reaction, candles: missing.drop(2), now: reference + 21.minutes)
+    expect(reaction.reload.results['15']['candles']).to eq(14)
+    described_class.call(reaction: reaction, candles: candles, now: reference + 22.minutes)
+    expect(reaction.reload.results['5']).to include('status' => 'measured', 'candles' => 5, 'recovered_at' => (reference + 22.minutes).iso8601)
+  end
+
+  it 'stops recovery after its deadline and keeps the partial observation for quality reporting' do
+    missing = candles.reject { |c| c[:time] == reference + 7.minutes }
+    described_class.call(reaction: reaction, candles: missing, now: reference + 2.hours)
+    partial = reaction.reload.results['15'].deep_dup
+    described_class.call(reaction: reaction, candles: candles, now: reference + 26.hours)
+    expect(reaction.reload.results['15']).to eq(partial)
+    expect(reaction.next_check_at).to be_nil
+  end
+
 end

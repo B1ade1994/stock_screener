@@ -24,7 +24,7 @@ RSpec.describe ReversalHistory do
     allow(client).to receive(:minute_candles).and_return([api_candle(boundary)])
     expect { described_class.refresh(instrument, client: client) }.not_to change(MarketMinute, :count)
     expect(instrument.reversal_minutes.count).to eq(83)
-    signal = instrument.signals.sole
+    signal = instrument.signals.visible.sole
     expect(signal).to have_attributes(kind: 'reversal', reversal_status: 'possible')
     expect(signal.details).to include('version' => 2, 'impulse_minutes' => 60)
     expect(boundary.reload.complete).to be false

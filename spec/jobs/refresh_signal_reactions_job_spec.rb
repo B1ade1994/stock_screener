@@ -20,7 +20,7 @@ RSpec.describe RefreshSignalReactionsJob, type: :job do
     travel 1.minute
     second = event.reaction
     travel 20.minutes
-    expect(client).to receive(:minute_candles).once.with(instrument.uid, from: first.reference_at, to: Time.current - 30.seconds).and_return(candles(first.reference_at))
+    expect(client).to receive(:minute_candles).once.with(instrument.uid, from: first.reference_at - 5.minutes, to: Time.current - 30.seconds).and_return(candles(first.reference_at))
     described_class.perform_now
     [first, second].each { |r| expect(r.reload.results.keys).to eq(%w[5 15]) }
   end
@@ -45,9 +45,9 @@ RSpec.describe RefreshSignalReactionsJob, type: :job do
     expect(second.reload.results.fetch("5")).to include("status" => "measured")
   end
 
-  it "stops retrying unavailable API data after a day" do
+  it "stops retrying API failures 24 hours after the final horizon" do
     reaction = event.reaction
-    travel 25.hours
+    travel_to reaction.recovery_deadline(60)
     allow(client).to receive(:minute_candles).and_raise(TInvest::Error, "Т-Инвестиции: HTTP 503")
     described_class.perform_now
     expect(reaction.reload.next_check_at).to be_nil

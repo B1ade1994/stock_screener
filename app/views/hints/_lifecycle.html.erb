@@ -1,0 +1,12 @@
+<% if (state = hint.details['lifecycle']) %>
+  <div class="hint-lifecycle"><p><strong>До отмены / конца наблюдения:</strong>
+    <% if state['status'] == 'measured' %>
+      <%= signed_percent(state['signed_change_percent']) %> · максимальное отклонение против идеи <%= signed_percent(state['adverse_percent']) %> · в пользу <%= signed_percent(state['favorable_percent']) %>
+    <% elsif state['status'] == 'unavailable' %>не оценено: <%= state['reason'] %>
+    <% else %>ожидается завершение и полная история<% end %>
+  </p>
+  <p class="muted">Условный вход: <%= Time.iso8601(state['entry_at']).in_time_zone.strftime('%d.%m %H:%M') %><% if state['entry_price'] %> по <%= signal_price(state['entry_price'].to_d) %><% end %>.
+    <% if state['exit_at'] %>Условный выход: <%= Time.iso8601(state['exit_at']).in_time_zone.strftime('%d.%m %H:%M') %><% if state['exit_price'] %> по <%= signal_price(state['exit_price'].to_d) %><% end %>. <%= state['exit_reason'] %>.<% end %>
+    Цена следующей минуты после обработки, не гарантированное исполнение; издержки не учтены.
+  </p></div>
+<% end %>

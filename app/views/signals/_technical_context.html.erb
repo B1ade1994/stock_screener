@@ -1,0 +1,17 @@
+<% if (context = signal.details['technical_context']) %>
+  <details class="episode-bursts technical-context">
+    <summary>ТА-контекст · <%= TechnicalContext::ALIGNMENT_LABELS.fetch(context['alignment'], 'Не определён') %> · <%= TechnicalContext::LOCATION_LABELS.fetch(context['location'], 'Не определено') %></summary>
+    <p class="muted">Снимок при регистрации <%= Time.iso8601(context.fetch('captured_at')).in_time_zone.strftime('%d.%m %H:%M:%S') %> · цена исходного события <%= signal_price(context['price']) %>. Поздние свечи не меняют эту оценку.</p>
+    <p>Дневной контекст: <strong><%= TechnicalContext::TREND_LABELS.fetch(context.dig('daily', 'direction'), 'Не определён') %></strong><% if context.dig('daily', 'as_of') %> · последняя свеча <%= Time.iso8601(context.dig('daily', 'as_of')).in_time_zone.strftime('%d.%m') %><% end %>.<br>
+    Недельный: <%= TechnicalContext::TREND_LABELS.fetch(context.dig('weekly', 'direction'), 'Не определён') %><% if context.dig('weekly', 'as_of') %> · последняя свеча <%= Time.iso8601(context.dig('weekly', 'as_of')).in_time_zone.strftime('%d.%m') %><% end %>.</p>
+    <% %w[support resistance].each do |side| %><% if (zone = context[side]) %>
+      <p><%= side == 'support' ? 'Сильная поддержка' : 'Сильное сопротивление' %> <%= zone['timeframe'] == 'week' ? '1W' : '1D' %>: <%= signal_price(zone['lower']) %>–<%= signal_price(zone['upper']) %> · расстояние <%= number_to_percentage(zone['distance_percent'], precision: 2) %><% if zone['distance_atr'] %> / <%= number_with_precision(zone['distance_atr'], precision: 2) %> дневного ATR<% end %></p>
+    <% end %><% end %>
+    <% if context['opposing_room_percent'] %><p>До ближайшей сильной встречной зоны: <%= number_to_percentage(context['opposing_room_percent'], precision: 2) %><% if context['room_risk'] %> · <%= number_with_precision(context['room_risk'], precision: 2) %> расстояния до отмены<% end %>.</p><% end %>
+    <% if context['invalidation'] %><p>Граница отмены по исходным условиям: <%= signal_price(context['invalidation']) %>. Это условие сценария, не цена исполненного стопа.</p><% end %>
+    <% if (candle = context['candle']) %><p>Первая объёмная минута: <%= TechnicalContext::SHAPE_LABELS.fetch(candle['shape']) %><% if candle['body_fraction'] %> · тело <%= number_to_percentage(candle['body_fraction'] * 100, precision: 0) %> диапазона · закрытие на <%= number_to_percentage(candle['close_position'] * 100, precision: 0) %> пути от минимума к максимуму<% end %>. Это описание свечи, не доказательство поглощения.</p><% end %>
+  </details>
+<% end %>
+<% if (study = signal.details['technical_study']) %>
+  <p class="muted">Тихая проверка <%= study['experiment'] == TechnicalStudies::STRUCTURE ? 'отскок → отдельный откат → пробой' : 'выход за зону → возврат → продолжение обратно' %>: <%= { 'pending' => 'наблюдаем', 'confirmed' => 'условия выполнены', 'cancelled' => 'структура нарушена', 'expired' => 'своевременного подтверждения нет' }.fetch(study['status'], study['status']) %>.</p>
+<% end %>

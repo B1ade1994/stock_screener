@@ -14,9 +14,9 @@ module Detectors
         bar.low_price <= [bar.open_price, bar.close_price].min
     end
 
-    def self.evaluate(bars:)
+    def self.evaluate(bars:, aggregated_context: false)
       # Prefer the longer context if the same rebound meets several scenarios.
-      WINDOWS.reverse_each do |minutes|
+      (aggregated_context ? WINDOWS.reject { |m| m == 5 } : WINDOWS).reverse_each do |minutes|
         window = bars.last(BASELINE + minutes + REBOUND)
         next unless window.size == BASELINE + minutes + REBOUND
         next unless window.all? { |b| valid_bar?(b) && b.time.in_time_zone.to_date == window.last.time.in_time_zone.to_date }
@@ -42,7 +42,8 @@ module Detectors
         move = finish - start
         next if move.zero?
         direction = move.negative? ? 1 : -1
-        path = [start] + impulse.map { |b| b.close_price.to_f }
+        path_bars = aggregated_context ? impulse.each_slice(5).map(&:last) : impulse
+        path = [start] + path_bars.map { |b| b.close_price.to_f }
         distance = path.each_cons(2).sum { |a, b| (b - a).abs }
         next unless distance.positive? && move.abs / distance >= 0.55
         next unless move.abs >= volatility * (minutes == 5 ? 4 : 6)
@@ -57,11 +58,12 @@ module Detectors
         next unless recovery >= volatility * 1.5 && retracement.between?(0.2, 0.85)
 
         return {
-          version: VERSION, direction: direction == 1 ? 'up' : 'down',
+          version: aggregated_context ? 3 : VERSION, context_minutes: aggregated_context ? 5 : 1, direction: direction == 1 ? 'up' : 'down',
           scenario: minutes == 5 ? 'sharp' : 'sustained', impulse_minutes: minutes,
           impulse_percent: (move / start * 100).round(2),
           rebound_percent: ((rebound.last.close_price.to_f - finish) / finish * 100).round(2),
           retracement_percent: (retracement * 100).round(1), relative_volume: relative_volume.round(2),
+          rebound_boundary: (direction == 1 ? rebound.map(&:high_price).max : rebound.map(&:low_price).min).to_s,
           volatility: volatility, extreme: extreme, entry_price: rebound.last.close_price.to_s,
           history_source: "completed_ohlcv", last_checked_at: window.last.time.iso8601, confirmation_closes: 0
         }

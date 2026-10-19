@@ -13,14 +13,16 @@
       <div class="nav-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
       <%= link_to "Акции", root_path, class: "nav-link workspace-link", aria: { current: (controller_name == "dashboard" && @tab == "stocks" ? "page" : nil) } %>
       <%= link_to "Лента событий", root_path(tab: "events"), class: "nav-link workspace-link", aria: { current: (controller_name == "dashboard" && @tab == "events" ? "page" : nil) } %>
+      <%= link_to "Лонг / шорт · эксперимент", hints_path, class: "nav-link workspace-link", aria: { current: controller_name == "hints" ? "page" : nil } %>
+      <%= link_to "Статистика дня", statistics_path, class: "nav-link workspace-link", aria: { current: controller_name == "statistics" ? "page" : nil } %>
       <%= link_to "＋  Добавить инструмент", search_instruments_path, class: "nav-link" %>
       <%= link_to "FAQ", guide_path, class: "nav-link guide-link", aria: { current: current_page?(guide_path) ? "page" : nil } %>
       <div class="sidebar-note"><span class="dot"></span> Т-Инвестиции API<br><small>Акции, фьючерсы и металлы · Только чтение</small></div>
     </aside>
     <main>
       <header class="topbar"><span>РЫНОЧНЫЙ РАДАР</span><div class="topbar-actions">
-        <div id="signal-sound" data-turbo-permanent data-controller="signal-sound" data-signal-sound-url-value="<%= latest_signals_path %>">
-          <button type="button" class="sound-toggle" data-signal-sound-target="button" data-action="signal-sound#toggle" aria-describedby="signal-sound-status" aria-pressed="false" title="Включить звук новых событий" aria-label="Включить звук">
+        <div id="signal-sound" data-turbo-permanent data-controller="signal-sound" data-signal-sound-url-value="<%= latest_hints_path %>">
+          <button type="button" class="sound-toggle" data-signal-sound-target="button" data-action="signal-sound#toggle" aria-describedby="signal-sound-status" aria-pressed="false" title="Включить звук идей лонг / шорт" aria-label="Включить звук">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M11 5 6 9H3v6h3l5 4Z"/>
               <g class="sound-waves"><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></g>

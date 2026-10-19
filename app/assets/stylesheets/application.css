@@ -101,3 +101,12 @@ td .autosave-error { color: #a4614b; max-width: 240px; }
 
 .reversal-status-cancelled { color: #a4614b; background: #f9eeea; }
 .reversal-status-expired { color: var(--muted); background: #f1f4f5; }
+
+.statistics-filters{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:20px}.statistics-filters label{display:flex;align-items:center;gap:8px;font-size:12px}.statistics-filters input[type=date]{padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:white;color:var(--ink)}
+
+.hint-watchlist { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.hint-card { margin-bottom: 16px; }
+
+.hint-heading { justify-content: flex-start; gap: 15px; }
+.hint-heading .signal-symbol { flex-shrink: 0; }
+.hint-heading-content { min-width: 0; }

@@ -18,9 +18,11 @@ class InstrumentsController < ApplicationController
     @instrument = Instrument.find(params[:id])
     @levels = @instrument.price_levels.active.order(:timeframe, :price)
     @level_strength = LevelStrength.new(@levels)
-    @signals = @instrument.signals.includes(:reaction).recent_activity.limit(30)
+    @signals = @instrument.signals.visible.includes(:reaction, :confirmation_reaction).recent_activity.limit(30)
     @timeframe = %w[day week].include?(params[:timeframe]) ? params[:timeframe] : "day"
     @candles = @instrument.candles.where(timeframe: @timeframe).order(:time).to_a
+    @live_day = @timeframe == 'day' && @candles.none? { |candle| candle.time >= Time.current.utc.beginning_of_day }
+    @live_candle = CurrentDayCandle.cached(@instrument) if @live_day
     @chart_start_index = 0
     if @timeframe == "day" && @candles.any?
       start_date = @candles.last.time.to_date << 2
@@ -32,17 +34,22 @@ class InstrumentsController < ApplicationController
   def quote
     instrument = Instrument.find(params[:id])
     response.headers["Cache-Control"] = "no-store"
-    render json: { price: instrument.last_price, traded_at: instrument.last_trade_at&.iso8601 }
+    quote = { price: instrument.last_price, traded_at: instrument.last_trade_at&.iso8601 }
+    if params[:live_candle] == 'day'
+      quote[:candle] = CurrentDayCandle.call(instrument)
+      quote[:period_start] = Time.current.utc.beginning_of_day.iso8601
+    end
+    render json: quote
   end
 
   def events
     @instrument = Instrument.find(params[:id])
-    @signals = @instrument.signals.includes(:reaction).recent_activity.limit(30)
+    @signals = @instrument.signals.visible.includes(:reaction, :confirmation_reaction).recent_activity.limit(30)
   end
 
   def update
     @instrument = Instrument.find(params[:id])
-    saved = @instrument.update(params.require(:instrument).permit(:enabled, :volume_enabled, :breakout_enabled, :reversal_enabled, :volume_multiplier, :minimum_volume))
+    saved = @instrument.update(params.require(:instrument).permit(:enabled, :volume_enabled, :breakout_enabled, :reversal_enabled, :volume_multiplier, :minimum_volume, :volume_noise_filter, :volume_min_change_percent))
     @save_error = @instrument.errors.full_messages.join(", ") unless saved
 
     if request.format.turbo_stream? && request.headers["Turbo-Frame"] == "dashboard"

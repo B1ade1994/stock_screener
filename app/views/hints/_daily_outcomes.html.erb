@@ -1,0 +1,7 @@
+<% d = hint.details %>
+<% if d['entry_price'] %><p>Условный вход: <%= Time.iso8601(d['entry_at']).in_time_zone.strftime('%d.%m.%Y') %> · <%= signal_price(d['entry_price'].to_d) %>. Цель 2R: <%= signal_price(d['target'].to_d) %>.</p><% elsif d['measurement_error'] %><p><%= d['measurement_error'] %></p><% else %><p class="muted">Ожидаем первую завершённую дневную свечу, начавшуюся после регистрации подтверждения, для фиксации условного входа.</p><% end %>
+<% if d.fetch('outcomes', {}).any? %><div class="table-scroll"><table><thead><tr><th>Свечей</th><th>Цена к концу по направлению</th><th>Со стопом / 2R</th><th>Выход</th></tr></thead><tbody>
+  <% d['outcomes'].sort_by { |h, _| h.to_i }.each do |horizon, result| %><tr><td><%= horizon %></td>
+    <% if result['status'] == 'measured' %><td><%= signed_percent(result['price_change']) %></td><td><%= signed_percent(result['trade_low']) %><% if result['ambiguous'] %> … <%= signed_percent(result['trade_high']) %><% end %></td><td><%= { 'stop' => 'Стоп', 'stop_gap' => 'Гэп через стоп', 'target' => 'Цель 2R', 'timeout' => 'По времени', 'ambiguous' => 'Стоп и цель в одной свече' }.fetch(result['exit_reason']) %></td>
+    <% else %><td colspan="3"><%= result['reason'] %></td><% end %></tr><% end %>
+</tbody></table></div><% end %>

@@ -71,7 +71,7 @@ RSpec.describe "Instrument chart", type: :request do
       candle(timeframe, 1.day.ago).update!(volume: 200)
       get instrument_path(instrument, timeframe: timeframe)
       page = Nokogiri::HTML(response.body)
-      bars = page.css(".chart-volume")
+      bars = page.css(".chart-volume[data-live='false']")
       expect(bars.map { |bar| bar["data-volume"].to_i }).to eq([0, 200])
       expect(bars.map { |bar| bar["height"].to_f }).to eq([0, 80])
       expect(page.at_css("[data-chart-cursor-target='volume']")).to be_present
@@ -176,7 +176,7 @@ RSpec.describe "Instrument chart", type: :request do
       controller = page.at_css("[data-controller='chart-cursor']")
       expect(controller["data-chart-cursor-last-price-value"].to_d).to eq(123.45.to_d)
       expect(Time.iso8601(controller["data-chart-cursor-last-trade-at-value"])).to eq(time)
-      expect(controller["data-chart-cursor-quote-url-value"]).to eq(quote_instrument_path(instrument))
+      expect(controller["data-chart-cursor-quote-url-value"]).to eq(quote_instrument_path(instrument, live_candle: timeframe == 'day' ? 'day' : nil))
       marker = page.at_css("[data-chart-cursor-target='currentPrice']")
       expect(marker.parent).to eq(page.at_css("svg.chart"))
       expect(marker.css("[data-chart-cursor-target='currentPriceLine']").size).to eq(1)

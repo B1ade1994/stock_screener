@@ -18,8 +18,8 @@
   </section>
   <% else %>
   <section class="panel"><div class="panel-heading"><div><h2>Лента событий</h2><span class="muted">Причина срабатывания сохраняется вместе с сигналом</span></div><div class="event-filters" role="group" aria-label="Фильтр событий">
-    <% { "all" => "Все", "volume" => "Объём", "levels" => "Пересечение уровня", "reversal" => "Развороты" }.each do |value, label| %>
-      <%= link_to label, root_path(tab: "events", event_filter: (value unless value == "all")), class: "event-filter#{' active' if @event_filter == value}", aria: { pressed: @event_filter == value }, data: { turbo_frame: "_top" } %>
+    <% { "main" => "Уровни и развороты", "volume" => "Объём", "levels" => "Пересечение уровня", "reversal" => "Развороты" }.each do |value, label| %>
+      <%= link_to label, root_path(tab: "events", event_filter: (value unless value == "main")), class: "event-filter#{' active' if @event_filter == value}", aria: { pressed: @event_filter == value }, data: { turbo_frame: "_top" } %>
     <% end %>
     <span class="badge">Последние 50</span>
   </div></div><%= render "signals/list", signals: @signals %></section>

@@ -24,10 +24,10 @@ export default class extends Controller {
         const timer = setTimeout(() => abort.abort(), 10000)
         try {
           const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store", signal: abort.signal })
-          if (!response.ok) throw new Error("Не удалось проверить новые события")
+          if (!response.ok) throw new Error("Не удалось проверить идеи лонг / шорт")
           return (await response.json()).latest_id
         } catch {
-          throw new Error("Нет связи с сервером событий")
+          throw new Error("Нет связи с сервером идей лонг / шорт")
         } finally { clearTimeout(timer) }
       }
     })
@@ -62,7 +62,7 @@ export default class extends Controller {
     button.disabled = false
     button.setAttribute("aria-pressed", String(sound.wanted))
     button.setAttribute("aria-label", sound.wanted ? "Выключить звук" : "Включить звук")
-    button.title = sound.wanted ? "Выключить звук новых событий" : "Включить звук новых событий. Прозвучит проверочный сигнал."
+    button.title = sound.wanted ? "Выключить звук идей лонг / шорт" : "Включить звук идей лонг / шорт. Прозвучит проверочный сигнал."
     this.statusTarget.textContent = sound.needsGesture ? "Звук начнётся после нажатия на страницу" : sound.error || (sound.enabling ? "Подключение звука…" : "")
     this.statusTarget.hidden = !this.statusTarget.textContent
   }

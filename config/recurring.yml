@@ -5,14 +5,32 @@ development: &tasks
   expire_reversals:
     class: ExpireReversalsJob
     schedule: every minute
+  refresh_directional_hints:
+    class: RefreshDirectionalHintsJob
+    schedule: every minute
   refresh_signal_reactions:
     class: RefreshSignalReactionsJob
+    schedule: every minute
+  recover_signal_reactions:
+    class: RecoverSignalReactionsJob
+    schedule: every 15 minutes
+  refresh_technical_studies:
+    class: RefreshTechnicalStudiesJob
+    schedule: every minute
+  refresh_daily_retests:
+    class: RefreshDailyRetestsJob
+    schedule: every 5 minutes
+  refresh_intraday_bounces:
+    class: RefreshIntradayBouncesJob
     schedule: every minute
   refresh_history:
     class: RefreshHistoryJob
     schedule: every hour
+  archive_minute_volumes:
+    class: ArchiveMinuteVolumesJob
+    schedule: every hour
   prune_minutes:
-    command: "MarketMinute.where('time < ?', 7.days.ago).delete_all; ReversalMinute.where('time < ?', 7.days.ago).delete_all"
+    class: PruneMinutesJob
     schedule: every day at 3am
 production:
   <<: *tasks

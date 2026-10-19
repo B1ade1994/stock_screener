@@ -15,7 +15,7 @@ RSpec.describe "Dashboard tabs", type: :request do
 
   it "keeps the selected event feed on reload and Turbo refresh" do
     [ {}, { "Turbo-Frame" => "dashboard" } ].each do |headers|
-      get root_path(tab: "events"), headers: headers
+      get root_path(tab: "events", event_filter: "volume"), headers: headers
       expect(response).to have_http_status(:ok)
       page = Nokogiri::HTML(response.body)
       expect(page.at_css(".sidebar .workspace-link[aria-current='page']").text).to eq("Лента событий") if headers.empty?
@@ -23,6 +23,22 @@ RSpec.describe "Dashboard tabs", type: :request do
       expect(page.at_css("#instruments-list")).to be_nil
       expect(page.at_css("#signal-sound")).to be_present if headers.empty?
     end
+  end
+
+  it "defaults to levels and reversals before limiting, including old all links and invalid filters" do
+    level = instrument.signals.create!(kind: 'crossing', title: 'Уровень TEST', event_key: 'main-level', occurred_at: 1.hour.ago)
+    reversal = instrument.signals.create!(kind: 'reversal', title: 'Разворот TEST', event_key: 'main-reversal', occurred_at: 30.minutes.ago)
+    51.times do |index|
+      instrument.signals.create!(kind: 'volume', title: 'Volume', event_key: "busy-volume-#{index}", occurred_at: Time.current)
+    end
+    [nil, 'all', 'invalid'].each do |filter|
+      get root_path(tab: 'events', event_filter: filter), headers: { 'Turbo-Frame' => 'dashboard' }
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('.signal').map { |node| node['id'] }).to contain_exactly("market_signal_#{level.id}", "market_signal_#{reversal.id}")
+      expect(page.at_css('.event-filter.active').text).to eq('Уровни и развороты')
+    end
+    expect(instrument.reload.volume_enabled).to eq(true)
+    expect(instrument.signals.where(kind: 'volume').count).to eq(52)
   end
 
   it "filters the feed between volume and level events before applying the limit" do

@@ -1,0 +1,38 @@
+<% content_for :title, 'Лонг / шорт · Stock Screener' %>
+<% if @archive %>
+  <%= render 'legacy' %>
+<% else %>
+<div class="page-heading"><div><span class="eyebrow">ЭКСПЕРИМЕНТ · ДНЕВНЫЕ СВЕЧИ</span><h1>Лонг / шорт</h1><p>Пробой с ретестом и отскок от поддержки · фьючерсы и металлы</p></div><%= link_to 'Архив минутных идей', hints_path(version: 'archive'), class: 'button' %></div>
+<section class="panel padded"><p>Лонг — после пробоя сопротивления и ретеста сверху. Шорт — после пробоя поддержки и ретеста снизу. Подтверждение: дневное закрытие за зоной с запасом 0,1 ATR. Ретест ожидается до пяти дневных свечей; возврат закрытия внутрь зоны отменяет сценарий.</p><p>Отскок от поддержки: касание нижней границы в пределах 0,25 дневного ATR; прокол глубже 0,5 ATR не допускается. Затем за три свечи нужны растущее закрытие выше границы и закрытия касания с запасом 0,1 ATR и более высокий минимум. Новый минимум за границей отмены отменяет кандидата. Близость недельной EMA40 — дополнительный контекст; контртренд отмечается отдельно.</p><p><strong>Ранний отскок:</strong> на текущем дне ждём касание поддержки и два последовательных завершённых минутных закрытия выше её нижней границы с запасом 0,1 ATR, без нового минимума. Это статус «Формируется сегодня», а не дневное подтверждение. Стоп и условия фиксируются при появлении; возврат минутного закрытия под границу с запасом или проход за стоп отменяет идею. Дневное подтверждение требует растущего закрытия выше зафиксированной границы. Не более одной ранней идеи на инструмент за дневной период; результаты отделены от прежнего дневного отскока.</p><p class="muted">Только сильные автоматические зоны 1D/1W. Новые идеи v1/v2 отключены; история сохранена в архиве. Сканеры объёмов и уровней акций работают как раньше. Звук сообщает о новых дневных идеях и подтверждении кандидатов. События ленты, обновления результатов, отмены и истечения не озвучиваются. Переключатель звука — в верхней панели; уведомления работают на любой открытой странице приложения. Торговые заявки не используются.</p></section>
+<%= form_with url: hints_path, method: :get, class: 'statistics-filters' do |form| %>
+  <label>Сценарий <%= form.select :version, [['Все дневные', 'daily'], ['Пробой + ретест', 'daily_retest_v1'], ['Отскок от поддержки', 'daily_support_bounce_v1'], ['Ранний отскок · сегодня', 'intraday_support_bounce_v1']], selected: @version %></label>
+  <label>Дата регистрации <%= form.date_field :date, value: @date&.iso8601 %></label>
+  <label>Статус <%= form.select :status, [['Все', ''], ['Формируется сегодня', 'forming'], ['Кандидат', 'possible'], ['Подтверждён', 'confirmed'], ['Отменён', 'cancelled'], ['Истёк', 'expired'], ['Вход пропущен', 'missed']], selected: @status %></label>
+  <%= form.submit 'Показать', class: 'button primary' %><%= link_to 'Все даты', hints_path, class: 'button' %>
+<% end %>
+<%= turbo_frame_tag 'directional-hints', data: { controller: 'refresh', refresh_interval_value: 60000, refresh_url_value: hints_path(version: @version, date: @date&.iso8601, status: @status, page: @page) } do %>
+  <section class="panel padded"><h2>Наблюдение</h2>
+    <% if @instruments.empty? %><p>Включите наблюдение и пересечения уровней у фьючерса или металла.</p><% else %>
+      <div class="hint-watchlist"><% @instruments.each do |instrument| %><% state = instrument.daily_retest_state %>
+        <span><%= link_to instrument.ticker, instrument_path(instrument), data: { turbo_frame: '_top' } %>:
+          <% if state.empty? %>ожидаем загрузку истории
+          <% elsif state.fetch('pending', []).any? %>ожидаем ретест (<%= state['pending'].size %>)
+          <% else %>ожидаем новый пробой<% end %>
+          <% if state['cursor'] %> · ретест: свеча <%= Time.iso8601(state['cursor']).in_time_zone.strftime('%d.%m') %><% end %>
+          <% bounce = instrument.daily_support_bounce_state %> · отскок: <%= @bounce_pending[instrument.id].to_i.positive? ? 'ждём подтверждение' : bounce.empty? ? 'ожидаем загрузку истории' : 'ждём подход к поддержке' %><% if bounce['cursor'] %> · свеча <%= Time.iso8601(bounce['cursor']).in_time_zone.strftime('%d.%m') %><% end %>
+           · ранний отскок: <%= @early_pending[instrument.id].to_i.positive? ? 'формируется сегодня' : 'ждём касание и удержание' %>
+          <% if instrument.history_error.present? %> · ошибка обновления истории<% end %>
+        </span>
+      <% end %></div>
+    <% end %>
+  </section>
+  <section class="panel padded"><h2>Результат эксперимента</h2><p class="muted">За выбранные даты регистрации, по всем статусам, отдельно по сценариям. Кандидаты без подтверждения в доходность не включаются. Условный вход — открытие первой дневной свечи, начавшейся после регистрации. Уже прошедшее открытие не используется: при задержке истории вход может быть позже, чем в исторической проверке. Модель: стоп за зоной и экстремумом ретеста, цель 2R; основной горизонт — 5 свечей. Проценты от стоимости позиции, до расходов.</p>
+    <% @daily_results.each do |family| %><h3><%= family[:label] %></h3><p class="muted">Ожидают подтверждения: <%= family[:candidates] %>.</p><div class="table-scroll"><table><thead><tr><th>Свечей</th><th>Измерено / подтверждённых</th><th>Положительных</th><th>Среднее со стопом / 2R</th><th>Неизвестный порядок стопа и цели</th></tr></thead><tbody>
+      <% family[:results].each do |row| %><tr><td><%= row[:horizon] %></td><td><%= row[:measured] %> / <%= row[:total] %></td><td><%= row[:positive] %></td><td><%= row[:mean] ? signed_percent(row[:mean]) : '—' %></td><td><%= row[:ambiguous] %></td></tr><% end %>
+    </tbody></table></div><% end %><p class="muted">При касании стопа и цели в одной свече сводка берёт худший вариант, карточка показывает оба. Дивиденды, комиссии, спред и финансирование не учтены. Подтверждение правил не означает доказанную прибыльность.</p>
+  </section>
+  <p class="muted">Сигналов: <%= @total %>. При первом запуске старая история не превращается в новые идеи.</p>
+  <% @hints.each do |hint| %><%= render(hint.kind.in?([DailySupportBounceResearch::KIND, IntradaySupportBounce::KIND]) ? 'bounce' : 'daily', hint: hint) %><% end %>
+  <nav class="statistics-filters"><% if @page > 1 %><%= link_to 'Назад', hints_path(version: @version, date: @date&.iso8601, status: @status, page: @page - 1), class: 'button' %><% end %><% if @page * 50 < @total %><%= link_to 'Далее', hints_path(version: @version, date: @date&.iso8601, status: @status, page: @page + 1), class: 'button' %><% end %></nav>
+<% end %>
+<% end %>

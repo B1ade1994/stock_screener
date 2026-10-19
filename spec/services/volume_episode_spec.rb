@@ -19,7 +19,7 @@ RSpec.describe VolumeEpisode do
     reference = reaction.reference_at
     created = episode.created_at
     travel 6.minutes
-    expect { record(6, buy: 1900) }.not_to change(MarketSignal, :count)
+    expect { record(6, buy: 1900) }.not_to change { MarketSignal.where(kind: "volume").count }
     episode.reload
     expect(episode.details).to include("burst_count" => 2, "max_ratio" => 20.0, "price_open" => "100", "price_close" => "101", "price_direction" => "up")
     expect(episode.details.fetch("totals")).to include("volume" => 3000, "buy" => 2800, "sell" => 200)
@@ -27,7 +27,7 @@ RSpec.describe VolumeEpisode do
     expect(episode.details.fetch("volume")).to eq(1000)
     expect(episode).to have_attributes(created_at: created, occurred_at: first_minute + 1.minute, last_occurred_at: first_minute + 7.minutes)
     expect(reaction.reload.reference_at).to eq(reference)
-    expect(SignalReaction.count).to eq(1)
+    expect(episode.reactions.count).to eq(1)
   end
 
   it "uses first open and last close to update the episode price direction" do
@@ -36,6 +36,7 @@ RSpec.describe VolumeEpisode do
     record(3, open_price: "102", close_price: "99")
     expect(episode.reload.details).to include("price_open" => "100", "price_close" => "99", "price_direction" => "down")
     expect(episode.price_direction).to eq("down")
+    expect(episode.title).to eq("Объём с падением цены · объём до ×10.0")
   end
 
   it "keeps the direction neutral when minute prices are unavailable" do
@@ -46,18 +47,21 @@ RSpec.describe VolumeEpisode do
   it "does not extend the ten-minute window when bursts keep arriving" do
     first = record
     record(9)
-    expect { record(10) }.to change(MarketSignal, :count).by(1)
+    expect { record(10) }.to change { MarketSignal.where(kind: "volume").count }.by(1)
     expect(first.reload.details.fetch("burst_count")).to eq(2)
   end
 
-  it "separates directions and instruments, including unknown-dominated volume" do
+  it "merges changing flow directions but keeps instruments separate" do
     expect do
       record
       record(1, buy: 100, sell: 900)
       record(2, buy: 50, sell: 50, unknown: 900)
       record(3, instrument: create_instrument)
-    end.to change(MarketSignal, :count).by(4)
-    expect(instrument.signals.order(:id).pluck(:episode_direction)).to eq(%w[buy sell mixed])
+    end.to change { MarketSignal.where(kind: "volume").count }.by(2)
+    episode = instrument.signals.where(kind: "volume").sole
+    expect(episode.episode_direction).to eq('buy') # Original statistics snapshot stays fixed.
+    expect(episode.details.fetch('bursts').map { |b| b['flow_direction'] }).to eq(%w[buy sell mixed])
+    expect(episode.details.fetch('totals')).to include('buy' => 1050, 'sell' => 1050, 'unknown' => 900)
   end
 
   it "is idempotent for both the first and later minutes, including out-of-order retries" do
@@ -65,7 +69,8 @@ RSpec.describe VolumeEpisode do
     record(3)
     record(1)
     2.times { record; record(3); record(1) }
-    expect(MarketSignal.count).to eq(1)
+    expect(MarketSignal.where(kind: "volume").count).to eq(1)
+    expect(MarketSignal.where(kind: VolumeFollowThrough::KIND).count).to eq(1)
     expect(first.reload.details.fetch("bursts").map { |b| b["time"] }).to eq([0, 1, 3].map { |m| (first_minute + (m + 1).minutes).iso8601 })
     expect(first.details.fetch("totals").fetch("volume")).to eq(3000)
     expect(first.last_occurred_at).to eq(first_minute + 4.minutes)
@@ -73,8 +78,17 @@ RSpec.describe VolumeEpisode do
 
   it "does not regroup legacy signals" do
     old = instrument.signals.create!(kind: "volume", title: "Legacy", event_key: "old", occurred_at: first_minute)
-    expect { record }.to change(MarketSignal, :count).by(1)
+    expect { record }.to change { MarketSignal.where(kind: "volume").count }.by(1)
     expect(old.reload.details).to eq({})
+  end
+
+  it "does not merge a new burst into a pre-upgrade directional episode" do
+    old = record
+    old.update!(details: old.details.except('grouping_version'), title: 'Эпизод покупок')
+    expect { record(1, buy: 100, sell: 900) }.to change { MarketSignal.where(kind: 'volume').count }.by(1)
+    expect(old.reload.details['burst_count']).to eq(1)
+    expect(old.display_title).to eq('Объём с ростом цены · объём до ×10.0')
+    expect(old.title).to eq('Эпизод покупок')
   end
 
   it "feeds detected anomalies into episodes without changing the detector threshold" do
@@ -84,8 +98,8 @@ RSpec.describe VolumeEpisode do
     end
     bar = instrument.market_minutes.create!(time: first_minute, session: session, buy: 350, sell: 50, open_price: 100, close_price: 99, complete: true)
     SignalEvaluator.volume(instrument, bar)
-    expect(instrument.signals.sole).to have_attributes(episode_direction: "buy")
-    expect(instrument.signals.sole.details).to include("volume" => 400, "ratio" => 4.0)
-    expect(instrument.signals.sole.price_direction).to eq("down")
+    expect(instrument.signals.where(kind: "volume").sole).to have_attributes(episode_direction: "buy")
+    expect(instrument.signals.where(kind: "volume").sole.details).to include("volume" => 400, "ratio" => 4.0)
+    expect(instrument.signals.where(kind: "volume").sole.price_direction).to eq("down")
   end
 end

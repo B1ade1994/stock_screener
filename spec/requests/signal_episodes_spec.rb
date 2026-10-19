@@ -12,16 +12,18 @@ RSpec.describe "Signal episodes", type: :request do
     cursor = response.parsed_body
     travel 2.minutes
     bar.time += 2.minutes
-    VolumeEpisode.record(instrument: instrument, bar: bar, details: details.merge(open_price: "101", close_price: "99"))
+    VolumeEpisode.record(instrument: instrument, bar: bar, details: details.merge(buy: 100, sell: 900, open_price: "101", close_price: "99", quality: { time_baseline: { status: "ready", samples: 12, baseline: 200, ratio: 5.0 } }))
     signal.reaction.update!(reference_price: 100, results: { "5" => { "status" => "measured", "price" => "99.5", "change_percent" => -0.5, "high_percent" => 0.1, "low_percent" => -0.8, "candles" => 5 } })
     get latest_signals_path
     expect(response.parsed_body).to eq(cursor)
 
-    [root_path(tab: "events"), instrument_path(instrument), events_instrument_path(instrument)].each do |path|
+    [root_path(tab: "events", event_filter: "volume"), instrument_path(instrument), events_instrument_path(instrument)].each do |path|
       get path
       expect(response).to have_http_status(:ok)
       page = Nokogiri::HTML(response.body)
       expect(page.css(".signal").size).to eq(1)
+      expect(page.at_css('.signal h3').text).to include('Объём с падением цены')
+      expect(page.at_css('.episode-bursts').text).to include('12 сессий', '×5.0', 'Нет оценки')
       expect(page.css(".episode-bursts tbody tr").size).to eq(2)
       expect(page.css(".reaction-outcome.price-down").text).to include("-0.50%")
       expect(page.at_css(".signal-symbol.price-down").text).to eq("↘")

@@ -10,12 +10,14 @@ class Instrument < ApplicationRecord
   has_many :price_levels, dependent: :destroy
   has_many :market_minutes, dependent: :delete_all
   has_many :reversal_minutes, dependent: :delete_all
+  has_many :minute_volume_samples, dependent: :delete_all
   has_many :signals, class_name: "MarketSignal", dependent: :delete_all
   validates :uid, :ticker, :name, :class_code, :currency, presence: true
   validates :uid, uniqueness: true
   validates :kind, inclusion: { in: %w[share futures currency] }
   validates :volume_multiplier, numericality: { greater_than_or_equal_to: 1.5, less_than_or_equal_to: 100 }
   validates :minimum_volume, numericality: { only_integer: true, greater_than: 0 }
+  validates :volume_min_change_percent, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }
   validate :supported_metal, if: -> { kind == "currency" }
   before_create :append_to_list
   scope :in_display_order, -> { order(:position, :id) }

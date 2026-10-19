@@ -1,4 +1,9 @@
 class SignalsController < ApplicationController
+  def show
+    @signal = MarketSignal.find(params[:id])
+    @events = SignalScenarios.timeline(@signal)
+  end
+
   def destroy
     signal = MarketSignal.find(params[:id])
     signal.destroy!
@@ -10,6 +15,6 @@ class SignalsController < ApplicationController
 
   def latest
     response.headers["Cache-Control"] = "no-store"
-    render json: { latest_id: MarketSignal.maximum(:id) || 0 }
+    render json: { latest_id: MarketSignal.visible.maximum(:id) || 0 }
   end
 end

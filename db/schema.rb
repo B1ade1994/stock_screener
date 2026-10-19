@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_22_000200) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -44,10 +44,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000200) do
     t.string "class_code", null: false
     t.datetime "created_at", null: false
     t.string "currency", null: false
+    t.jsonb "daily_retest_state", default: {}, null: false
+    t.jsonb "daily_support_bounce_state", default: {}, null: false
     t.boolean "enabled", default: true, null: false
     t.date "expiration_date"
     t.string "history_error"
     t.datetime "history_synced_at"
+    t.jsonb "intraday_bounce_state", default: {}, null: false
     t.string "kind", null: false
     t.decimal "last_price", precision: 24, scale: 9
     t.datetime "last_reversal_minute_at"
@@ -63,7 +66,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000200) do
     t.string "uid", null: false
     t.datetime "updated_at", null: false
     t.boolean "volume_enabled", default: true, null: false
+    t.decimal "volume_min_change_percent", precision: 8, scale: 4, default: "0.05", null: false
     t.decimal "volume_multiplier", precision: 8, scale: 2, default: "3.0", null: false
+    t.boolean "volume_noise_filter", default: true, null: false
     t.index ["position"], name: "index_instruments_on_position"
     t.index ["uid"], name: "index_instruments_on_uid", unique: true
   end
@@ -83,6 +88,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000200) do
     t.bigint "unknown", default: 0, null: false
     t.index ["instrument_id", "time", "session"], name: "index_market_minutes_on_instrument_id_and_time_and_session", unique: true
     t.index ["instrument_id"], name: "index_market_minutes_on_instrument_id"
+  end
+
+  create_table "minute_volume_samples", force: :cascade do |t|
+    t.string "data_source", null: false
+    t.string "day_type", null: false
+    t.bigint "instrument_id", null: false
+    t.integer "minute_of_day", null: false
+    t.datetime "time", null: false
+    t.date "trading_date", null: false
+    t.bigint "volume", null: false
+    t.index ["instrument_id", "minute_of_day", "day_type", "trading_date"], name: "index_minute_volumes_on_seasonal_lookup"
+    t.index ["instrument_id", "time"], name: "index_minute_volume_samples_on_instrument_id_and_time", unique: true
+    t.index ["instrument_id"], name: "index_minute_volume_samples_on_instrument_id"
+    t.index ["trading_date"], name: "index_minute_volume_samples_on_trading_date"
+    t.check_constraint "minute_of_day >= 0 AND minute_of_day <= 1439", name: "minute_volume_valid_minute"
+    t.check_constraint "volume >= 0", name: "minute_volume_nonnegative"
   end
 
   create_table "price_levels", force: :cascade do |t|
@@ -122,38 +143,47 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_000200) do
   end
 
   create_table "signal_reactions", force: :cascade do |t|
+    t.jsonb "baseline", default: {}, null: false
     t.datetime "created_at", null: false
     t.string "last_error"
     t.datetime "next_check_at"
+    t.string "phase", default: "initial", null: false
     t.datetime "reference_at", null: false
     t.decimal "reference_price", precision: 24, scale: 9
     t.jsonb "results", default: {}, null: false
+    t.jsonb "session_results", default: {}, null: false
     t.bigint "signal_id", null: false
     t.datetime "updated_at", null: false
     t.index ["next_check_at"], name: "index_signal_reactions_on_next_check_at", where: "(next_check_at IS NOT NULL)"
-    t.index ["signal_id"], name: "index_signal_reactions_on_signal_id", unique: true
+    t.index ["signal_id", "phase"], name: "index_signal_reactions_on_signal_id_and_phase", unique: true
   end
 
   create_table "signals", force: :cascade do |t|
+    t.datetime "confirmed_at"
     t.datetime "created_at", null: false
     t.jsonb "details", default: {}, null: false
     t.string "episode_direction"
     t.string "event_key", null: false
+    t.string "experiment"
     t.bigint "instrument_id", null: false
     t.string "kind", null: false
     t.datetime "last_occurred_at"
     t.datetime "occurred_at", null: false
+    t.boolean "research_only", default: false, null: false
     t.string "reversal_status"
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.index ["confirmed_at"], name: "index_signals_on_confirmed_at"
     t.index ["event_key"], name: "index_signals_on_event_key", unique: true
     t.index ["instrument_id", "episode_direction", "occurred_at"], name: "index_signals_on_episode_window"
     t.index ["instrument_id", "occurred_at"], name: "index_signals_on_reversals", where: "((kind)::text = 'reversal'::text)"
     t.index ["instrument_id"], name: "index_signals_on_instrument_id"
+    t.index ["research_only", "id"], name: "index_signals_on_research_only_and_id"
   end
 
   add_foreign_key "candles", "instruments"
   add_foreign_key "market_minutes", "instruments"
+  add_foreign_key "minute_volume_samples", "instruments", on_delete: :cascade
   add_foreign_key "price_levels", "instruments"
   add_foreign_key "reversal_minutes", "instruments"
   add_foreign_key "signal_reactions", "signals", on_delete: :cascade

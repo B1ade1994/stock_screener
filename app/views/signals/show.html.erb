@@ -1,0 +1,14 @@
+<% content_for :title, "История сценария · #{@signal.instrument.ticker}" %>
+<div class="page-heading"><div><span class="eyebrow">РАЗВИТИЕ СОБЫТИЯ</span><h1><%= @signal.instrument.ticker %> · история сценария</h1><p>Связанные события и теневые эксперименты · МСК</p></div></div>
+<p><%= link_to 'К инструменту', instrument_path(@signal.instrument) %> · <%= link_to 'К ленте событий', root_path(tab: 'events') %></p>
+<section class="panel padded"><p>Связь подтверждена сохранённым источником события или общим идентификатором пробоя уровня. Близкие по времени события автоматически не объединяются. Подтверждение имеет отдельный отсчёт; этапы одного сценария нельзя складывать как независимые возможности.</p></section>
+<% @events.each do |event| %>
+  <section class="panel padded" id="<%= dom_id(event) %>">
+    <p class="muted"><%= event.created_at.in_time_zone.strftime('%d.%m.%Y %H:%M:%S') %> · событие №<%= event.id %><% if event.research_only? %> · исследовательское<% end %><% if event.experiment.present? %> · <%= event.experiment %><% end %></p>
+    <h2><%= event.display_title %></h2>
+    <% if event.reversal_status.present? %><p><%= { 'possible' => 'Ожидает подтверждения', 'confirmed' => 'Подтверждён', 'cancelled' => 'Отменён', 'expired' => 'Истёк', 'rejected' => 'Отсеян', 'missed' => 'Вход пропущен' }.fetch(event.reversal_status, event.reversal_status) %><% if event.confirmed_at %> · подтверждение <%= event.confirmed_at.in_time_zone.strftime('%d.%m %H:%M:%S') %><% end %></p><% end %>
+    <%= render 'signals/episode', signal: event if event.episode? %>
+    <%= render 'signals/reaction', signal: event %>
+    <%= render 'signals/technical_context', signal: event %>
+  </section>
+<% end %>

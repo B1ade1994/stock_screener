@@ -1,0 +1,37 @@
+<%= link_to 'Дневной эксперимент', hints_path, class: 'button' %>
+<div class="page-heading"><div><span class="eyebrow">ЭКСПЕРИМЕНТ</span><h1>Архив минутных идей</h1><p>Новые кандидаты отключены · предыдущие результаты сохранены</p></div></div>
+<section class="panel padded"><p>Подсказки собираются отдельно от ленты. «Подтверждён» означает выполнение правил, а не доказанную вероятность роста или снижения. Цена кандидата и границы фиксируются при обнаружении; подтверждение получает новый отсчёт. Сделки приложение не открывает.</p><p class="muted">Сбор новых идей остановлен. Описание прежних правил: инструменты с включённым наблюдением «Развороты». У сильного уровня дополнительно должен быть включён поиск пересечений. Две версии: v1 — контроль; v2 — проверка входа и подтверждение по основанию. Каждая новая идея получает пару с одинаковым исходным моментом; старые идеи не копируются.</p></section>
+<%= form_with url: hints_path, method: :get, class: 'statistics-filters' do |form| %>
+  <label>Дата <%= form.date_field :date, value: @date.iso8601, required: true %></label>
+  <label>Версия <%= form.select :version, [['Обе версии', 'archive'], ['v1 · контроль', 'directional_v1'], ['v2 · новые правила', 'directional_v2']], selected: @version %></label>
+  <label>Статус <%= form.select :status, [['Все', '']] + DirectionalHints::LABELS.map { |value, label| [label, value] }, selected: @status %></label>
+  <%= form.submit 'Показать', class: 'button primary' %>
+<% end %>
+<%= turbo_frame_tag 'directional-hints', data: { controller: 'refresh', refresh_interval_value: 60000, refresh_url_value: hints_path(date: @date.iso8601, version: @version, status: @status, page: @page) } do %>
+  <section class="panel padded"><h2>Результат до отмены или конца наблюдения</h2>
+    <p class="muted">По дате подтверждения. Условные цены входа и выхода — открытия следующих минут после решения. Процент со знаком идеи, без издержек; это не исполненные сделки. Пропуски исключены.</p>
+    <div class="table-scroll"><table><thead><tr><th>Версия</th><th>Полных / подтверждено</th><th>Положительных</th><th>Среднее</th><th>Ожидается / недоступно / старые</th></tr></thead><tbody>
+      <% @lifecycle_rows.each do |row| %><tr><td><%= row[:version] == DirectionalHintResearch::EXPERIMENT ? 'v2 · новые правила' : 'v1 · контроль' %></td><td><%= row[:measured] %> / <%= row[:total] %></td><td><%= row[:positive] %></td><td><%= row[:mean] ? signed_percent(row[:mean]) : '—' %></td><td><%= row[:pending] %> / <%= row[:unavailable] %> / <%= row[:legacy] %></td></tr><% end %>
+    </tbody></table></div>
+  </section>
+  <p class="muted">За выбранную дату: <%= @total %>. Отсутствие кандидатов — допустимый результат.</p>
+  <% @hints.each do |hint| %>
+    <% d = hint.details; up = d['direction'] == 'up' %>
+    <section class="panel padded hint-card" id="<%= dom_id(hint) %>" data-hint-id="<%= hint.id %>">
+      <div class="panel-heading hint-heading">
+        <div class="signal-symbol <%= up ? 'price-up' : 'price-down' %>" aria-hidden="true"><%= up ? '↗' : '↘' %></div>
+        <div class="hint-heading-content"><h2><%= link_to hint.instrument.ticker, instrument_path(hint.instrument), data: { turbo_frame: '_top' } %> · <span class="<%= up ? 'price-up' : 'price-down' %>"><%= hint.title %></span></h2><p><%= hint.experiment == DirectionalHintResearch::EXPERIMENT ? 'v2 · новые правила' : 'v1 · контроль' %> · <%= DirectionalHints::LABELS.fetch(hint.reversal_status) %><% if d['control_id'] %> · контроль #<%= d['control_id'] %><% end %> · зарегистрирован <%= hint.created_at.in_time_zone.strftime('%d.%m %H:%M:%S') %></p></div></div>
+      <p><strong>Основание:</strong> <%= d['basis'] %><% if d['relative_volume'] %> · объём отскока ×<%= d['relative_volume'] %><% end %><% if d['impulse_minutes'] %> · исходное движение <%= d['impulse_minutes'] %> мин<% end %></p>
+      <p><strong>Цена при обнаружении:</strong> <%= signal_price(d.fetch('decision_price').to_d) %> · <strong>Граница подтверждения:</strong> закрытие <%= up ? 'не ниже' : 'не выше' %> <%= signal_price(d.fetch('confirmation_price').to_d) %></p>
+      <% if d['confirmation_rule'] %><p><strong>Правило:</strong> <%= DirectionalHintResearch::RULE_LABELS.fetch(d['confirmation_rule']) %></p><% else %><p>Два последовательных закрытия за границей.</p><% end %>
+      <p><strong>Отмена:</strong> цена <%= up ? 'не выше' : 'не ниже' %> <%= signal_price(d.fetch('invalidation').to_d) %> · ожидание подтверждения до <%= Time.iso8601(d.fetch('confirmation_deadline')).in_time_zone.strftime('%H:%M:%S') %></p>
+      <p class="muted"><%= d['status_reason'] %><% if hint.confirmed_at %> · подтверждение сохранено <%= hint.confirmed_at.in_time_zone.strftime('%H:%M:%S') %><% end %>. Проверка отмены продолжается час после подтверждения.</p>
+      <%= render 'entry_review', hint: hint %>
+      <%= render 'lifecycle', hint: hint %>
+      <%= render 'signals/reaction', signal: hint, horizons: [15, 60] %>
+      <p class="muted">Замеры через 15/60 минут — фактическое изменение цены: для шорта снижение соответствует направлению сценария. Издержки не учтены; граница отмены не является гарантированной ценой исполнения.</p>
+    </section>
+  <% end %>
+  <nav class="statistics-filters"><% if @page > 1 %><%= link_to 'Назад', hints_path(date: @date.iso8601, version: @version, status: @status, page: @page - 1), class: 'button' %><% end %><% if @page * 50 < @total %><%= link_to 'Далее', hints_path(date: @date.iso8601, version: @version, status: @status, page: @page + 1), class: 'button' %><% end %></nav>
+<% end %>
+<section class="panel padded"><h2>Как проверяем</h2><p>Три основания: отскок действующих детекторов, резкое движение на переменном окне 3–15 минут с двумя минутами восстановления, закрытие за сильной зоной поддержки/сопротивления. В контроле отслеживается один сценарий по бумаге. Парный v2 проверяет тот же кандидат независимо и не блокирует следующие идеи контроля. Новый противоположный резкий отскок отменяет прежний сценарий как конфликт; эта причина записывается отдельно от касания цены. Первое касание границы отмены важнее подтверждения в той же свече: порядок сделок внутри минуты неизвестен.</p><p>Пропущенные минуты не перескакиваем. Кандидаты, подтверждения и последующие отмены остаются в истории; измерения после отмены продолжаются для проверки исходного прогноза. Сводные результаты доступны в <%= link_to 'статистике дня', statistics_path, data: { turbo_frame: '_top' } %>. Старые события в кандидатов задним числом не превращаются.</p></section>

@@ -7,6 +7,7 @@ pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
 
 pin "chart_viewport", to: "chart_viewport.js"
+pin "chart_live_candle", to: "chart_live_candle.js"
 
 pin "chart_level_filter", to: "chart_level_filter.js"
 

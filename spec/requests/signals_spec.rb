@@ -4,7 +4,7 @@ RSpec.describe "Sound notifications", type: :request do
   it "renders legacy volume events with a neutral price icon" do
     instrument = create_instrument
     instrument.signals.create!(kind: "volume", title: "Old volume", event_key: "legacy-icon", occurred_at: Time.current)
-    get root_path(tab: "events")
+    get root_path(tab: "events", event_filter: "volume")
     icon = Nokogiri::HTML(response.body).at_css(".signal-symbol.price-flat")
     expect(icon.text).to eq("→")
     expect(icon["aria-label"]).to include("не определено")
@@ -37,11 +37,12 @@ RSpec.describe "Sound notifications", type: :request do
 
   it "provides a persistent sound control on the dashboard and instrument screen" do
     instrument = create_instrument
-    [root_path, instrument_path(instrument)].each do |path|
+    [root_path, root_path(tab: 'events'), hints_path, instrument_path(instrument)].each do |path|
       get path
       page = Nokogiri::HTML(response.body)
       control = page.at_css("#signal-sound[data-turbo-permanent]")
-      expect(control["data-signal-sound-url-value"]).to eq(latest_signals_path)
+      expect(control["data-signal-sound-url-value"]).to eq(latest_hints_path)
+      expect(control.at_css("button")["title"]).to include("лонг / шорт")
       expect(control.at_css("button")["aria-pressed"]).to eq("false")
       expect(control.at_css("button")["aria-label"]).to eq("Включить звук")
       expect(control.at_css("button svg .sound-waves")).to be_present
@@ -53,7 +54,7 @@ RSpec.describe "Sound notifications", type: :request do
     instrument = create_instrument
     signal = instrument.signals.create!(kind: "volume", title: "Test volume", event_key: "delete-this", occurred_at: Time.current)
     other = instrument.signals.create!(kind: "volume", title: "Keep volume", event_key: "keep-this", occurred_at: Time.current)
-    [root_path(tab: "events"), instrument_path(instrument)].each do |path|
+    [root_path(tab: "events", event_filter: "volume"), instrument_path(instrument)].each do |path|
       get path
       page = Nokogiri::HTML(response.body)
       form = page.at_css("#market_signal_#{signal.id} form")

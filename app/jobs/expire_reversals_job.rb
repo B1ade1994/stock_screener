@@ -1,5 +1,7 @@
 class ExpireReversalsJob < ApplicationJob
   def perform
+    ReversalResearch.expire
+    VolumeFollowThrough.expire
     # Settle time allows the last eligible complete minute to reach ingestion.
     MarketSignal.where(kind: 'reversal', reversal_status: 'possible')
       .where('occurred_at < ?', Time.current - ReversalTracker::CONFIRMATION_WINDOW - 2.minutes).find_each do |signal|

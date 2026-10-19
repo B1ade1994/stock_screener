@@ -38,4 +38,16 @@ RSpec.describe TInvest::Client do
     expect(client).to receive(:call).with("MarketDataService/GetCandles", { instrumentId: "uid", from: from.iso8601, to: (from + 1.hour).iso8601, interval: "CANDLE_INTERVAL_1_MIN", candleSourceType: "CANDLE_SOURCE_EXCHANGE" }).and_return("candles" => [candle, candle.merge("isComplete" => false)])
     expect(client.minute_candles("uid", from: from, to: from + 1.hour)).to eq([{ time: from, volume: 123, open: 100.5.to_d, high: 100.5.to_d, low: 100.5.to_d, close: 100.5.to_d }])
   end
+
+  it "loads the current exchange daily candle for display without changing the completed-history filter" do
+    now = Time.utc(2026, 10, 19, 13)
+    raw = { 'time' => '2026-10-19T00:00:00Z', 'isComplete' => false }
+    expect(client).to receive(:call).with('MarketDataService/GetCandles',
+      { instrumentId: 'uid', from: '2026-10-19T00:00:00Z', to: now.iso8601,
+        interval: 'CANDLE_INTERVAL_DAY', candleSourceType: 'CANDLE_SOURCE_EXCHANGE' })
+      .and_return('candles' => [raw.merge('time' => '2026-10-18T00:00:00Z'), raw])
+    expect(client.current_day_candle('uid', now: now)).to eq(raw)
+    allow(client).to receive(:call).and_return('candles' => [raw, raw.merge('isComplete' => true)])
+    expect(client.candles('uid', 'day')).to eq([raw.merge('isComplete' => true)])
+  end
 end

@@ -22,5 +22,8 @@ class RefreshHistoryJob < ApplicationJob
       end
     end
     instrument.update!(history_synced_at: Time.current, history_error: nil)
+    LevelSessionRecorder.call(instrument: instrument)
+    DailyRetestResearch.call(instrument)
+    DailySupportBounceResearch.call(instrument)
   end
 end

@@ -192,3 +192,11 @@ test("current quote remains on the same price when the time window is moved into
   assert.deepEqual(view.priceMarker(200, 100, 300), marker)
   assert.equal(view.full, false)
 })
+
+test("an unavailable live slot does not distort the price scale or shift historical candle indices", () => {
+  const view = new ChartViewport(3)
+  view.fitCandles([{ top: 120, bottom: 180 }, { top: 110, bottom: 190 }, null])
+  assert.ok(Number.isFinite(view.top) && Number.isFinite(view.height))
+  assert.ok(view.top < 110 && view.top + view.height > 190)
+  assert.equal(view.candleUnder(890), 2)
+})

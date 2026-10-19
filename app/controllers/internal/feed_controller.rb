@@ -25,6 +25,8 @@ module Internal
             bar.assign_attributes(values.merge(prices).merge(complete: complete))
             bar.save!
             if complete && params[:status] == "connected"
+              ReversalMinute.record_stream(instrument, bar)
+              VolumeFollowThrough.process(instrument)
               SignalEvaluator.volume(instrument, bar)
               ReversalTracker.process(instrument, bar)
             end
