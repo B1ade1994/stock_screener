@@ -16,7 +16,7 @@ RSpec.describe 'Intraday bounce hints', type: :request do
     page = Nokogiri::HTML(response.body)
     expect(page.css('[data-hint-id]').map { |n| n['data-hint-id'] }).to eq([signal.id.to_s])
     expect(page.at_css('#directional-hints')['data-refresh-url-value']).to include('status=forming', 'version=intraday_support_bounce_v1')
-    expect(page.text).to include('Формируется сегодня', 'Ранний эксперимент', 'Ранний отскок · текущий день', 'Не более одной ранней идеи')
+    expect(page.text).to include('Формируется сегодня', 'Ранний эксперимент', 'Ранний отскок · сегодня', 'Одновременно — одна формирующаяся идея')
     expect(page.text).not_to include('Условный вход:')
     expect(signal.reactions).to be_empty
     expect(DailySignalStatistics.call(date: Date.current, horizon: 5).sum { |row| row[:total] }).to eq(0)

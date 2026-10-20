@@ -64,7 +64,7 @@ RSpec.describe IntradaySupportBounce do
     expect(instrument.signals.where(kind: described_class::KIND)).to be_empty
   end
 
-  it 'cancels on a subsequent stop breach and never recreates the same day or rewrites its original evidence' do
+  it 'cancels on a subsequent stop breach without recreating from old evidence or rewriting it' do
     signal = create_early
     stop = signal.details['stop']
     travel 1.minute
@@ -75,6 +75,50 @@ RSpec.describe IntradaySupportBounce do
     travel 1.minute
     described_class.process(instrument, snapshot, [bar(2.minutes.ago)], now: Time.current)
     expect(instrument.signals.where(kind: described_class::KIND).count).to eq(1)
+  end
+
+  it 'allows a fresh touch after cancellation, including legacy day-wide keys, and keeps the old idea cancelled' do
+    original = create_early
+    original.update!(event_key: "intraday-support-bounce:v1:#{instrument.id}:#{period.to_i}")
+    travel 1.minute
+    lower_snapshot = snapshot.merge('low' => 99.0)
+    described_class.process(instrument, lower_snapshot, [bar(2.minutes.ago)], now: Time.current)
+    original.reload
+    frozen = original.attributes.deep_dup
+    ended_at = Time.current
+
+    # A touch before cancellation cannot be reused even if its holding minutes
+    # and the polling cursor are newer.
+    travel 3.minutes
+    stale_touch = [bar(ended_at - 1.minute, close: 100, low: 99),
+      bar(ended_at), bar(ended_at + 1.minute)]
+    expect { described_class.process(instrument, lower_snapshot, stale_touch, now: Time.current) }.not_to change(MarketSignal, :count)
+
+    travel 2.minutes
+    fresh = [bar(ended_at + 1.minute, close: 100, low: 99),
+      bar(ended_at + 2.minutes), bar(ended_at + 3.minutes)]
+    expect { described_class.process(instrument, lower_snapshot, fresh, now: Time.current) }.to change(MarketSignal, :count).by(1)
+    replacement = instrument.signals.order(:id).last
+    expect(replacement.reversal_status).to eq('forming')
+    expect(replacement.details['early_evidence'].first['time']).to eq(fresh.first.time.iso8601)
+    expect(replacement.details['stop'].to_d).to eq(98.8.to_d)
+    expect(replacement.event_key).not_to eq(original.event_key)
+    expect(original.reload.attributes).to eq(frozen)
+
+    expect { described_class.process(instrument, lower_snapshot, fresh, now: Time.current) }.not_to change(MarketSignal, :count)
+    travel 1.minute
+    expect { described_class.process(instrument, lower_snapshot, [bar(2.minutes.ago)], now: Time.current) }.not_to change(MarketSignal, :count)
+  end
+
+  it 'requires fresh evidence after expiry too' do
+    signal = create_early
+    travel 10.minutes
+    described_class.process(instrument, snapshot, [bar(2.minutes.ago)], now: Time.current)
+    expect(signal.reload.reversal_status).to eq('expired')
+    travel 5.minutes
+    fresh = [bar(4.minutes.ago, close: 100, low: 99.5), bar(3.minutes.ago), bar(2.minutes.ago)]
+    expect { described_class.process(instrument, snapshot, fresh, now: Time.current) }.to change(MarketSignal, :count).by(1)
+    expect(signal.reload.reversal_status).to eq('expired')
   end
 
   it 'does not confirm from the live candle and confirms the same record only after the completed daily candle arrives' do

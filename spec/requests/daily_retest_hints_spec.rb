@@ -17,7 +17,8 @@ RSpec.describe 'Daily retest hints', type: :request do
     expect(page.at_css('.hint-watchlist').text).to include('IMOEXF')
     expect(page.at_css('.hint-watchlist').text).not_to include('SBER')
     expect(page.at_css('.signal-symbol')['class']).to include('price-down')
-    expect(page.text).to include('Архив минутных идей', 'начавшейся после регистрации')
+    expect(page.text).to include('Архив минутных идей')
+    expect(page.text).not_to include('Результат эксперимента')
     expect(hint.reactions).to be_empty
     get latest_signals_path
     expect(response.parsed_body['latest_id']).to eq(0)

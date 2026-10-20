@@ -61,17 +61,23 @@ class IntradaySupportBounce
       elsif minutes.last.time >= control_start && (recent.first&.time != control_start || recent.each_cons(2).any? { |a, b| b.time != a.time + 1.minute })
         finish(active, 'expired', 'Пропуск минут контроля; удержание после появления идеи не оценено', now: now)
       end
-    elsif snapshot && !active && !instrument.signals.exists?(event_key: event_key(instrument, period))
+    elsif snapshot && !active
+      previous = instrument.signals.where(kind: KIND, created_at: period...(period + 1.day)).order(created_at: :desc, id: :desc).first
+      # A new setup must begin after the previous idea ended, including legacy
+      # ideas whose event key identified the entire day.
+      restart_after = if previous&.reversal_status.in?(%w[cancelled expired])
+        Time.iso8601(previous.details.fetch('status_at'))
+      end
       days = completed_days(instrument, now)
-      if days.size >= 15 && days.all? { |bar| DailyRetestResearch.valid_bar?(bar) } && period - days.last.time <= 4.days
-        create_candidate(instrument, snapshot, minutes, days, last_at: last_at, now: now)
+      if (!previous || restart_after) && days.size >= 15 && days.all? { |bar| DailyRetestResearch.valid_bar?(bar) } && period - days.last.time <= 4.days
+        create_candidate(instrument, snapshot, minutes, days, last_at: last_at, now: now, restart_after: restart_after)
       end
     end
     state['last_minute_at'] = minutes.last.time.iso8601
     instrument.update!(intraday_bounce_state: state)
   end
 
-  def self.create_candidate(instrument, snapshot, minutes, days, last_at:, now:)
+  def self.create_candidate(instrument, snapshot, minutes, days, last_at:, now:, restart_after: nil)
     period = now.utc.beginning_of_day
     atr = MarketIndicators.atr(days).last
     return unless atr&.finite? && atr.positive?
@@ -89,6 +95,7 @@ class IntradaySupportBounce
       boundary = setup.fetch('lower').to_d + setup.fetch('buffer').to_d
       evidence = minutes.each_cons(3).find do |touch, first, second|
         touch.time > Time.iso8601(instrument.intraday_bounce_state.fetch('started_at')) && second.time > last_at &&
+          (!restart_after || touch.time > restart_after) &&
           first.time == touch.time + 1.minute && second.time == first.time + 1.minute &&
           second.time >= now - 4.minutes && touch.low <= level.lower_bound + atr.to_d * DailySupportBounceSetup::TOUCH_ATR &&
           touch.low >= level.lower_bound - atr.to_d * DailySupportBounceSetup::BREAK_ATR && touch.high >= level.lower_bound &&
@@ -101,7 +108,7 @@ class IntradaySupportBounce
     return unless setup
     setup['status'] = 'forming'
     instrument.signals.create!(kind: KIND, experiment: EXPERIMENT, research_only: true, reversal_status: 'forming',
-      event_key: event_key(instrument, period), occurred_at: now, title: 'Ранний отскок от поддержки · кандидат в лонг',
+      event_key: event_key(instrument, period, evidence.first.time), occurred_at: now, title: 'Ранний отскок от поддержки · кандидат в лонг',
       details: { 'direction' => 'up', 'setup' => setup, 'decision_price' => snapshot.fetch('close').to_s,
         'stop' => setup.fetch('stop'), 'touch_context' => TechnicalContext.trend(days, 'day'),
         'status_reason' => 'Сегодняшнее касание поддержки и два последовательных минутных закрытия выше границы с запасом 0,1 ATR',
@@ -152,7 +159,7 @@ class IntradaySupportBounce
     false
   end
 
-  def self.event_key(instrument, period) = "intraday-support-bounce:v1:#{instrument.id}:#{period.to_i}"
+  def self.event_key(instrument, period, touch_at) = "intraday-support-bounce:v1:#{instrument.id}:#{period.to_i}:#{touch_at.to_i}"
 
   def self.finish(signal, status, reason, now:)
     d = signal.details.deep_dup

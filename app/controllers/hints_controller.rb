@@ -25,21 +25,6 @@ class HintsController < ApplicationController
       @instruments = Instrument.watched.where(kind: %w[futures currency], breakout_enabled: true).in_display_order.select { |i| DailyRetestResearch.eligible?(i) }
       @bounce_pending = MarketSignal.where(kind: DailySupportBounceResearch::KIND, reversal_status: 'possible').group(:instrument_id).count
       @early_pending = MarketSignal.where(kind: IntradaySupportBounce::KIND, reversal_status: 'forming').group(:instrument_id).count
-      rows = scope.to_a
-      @daily_results = [[DailyRetestResearch::EXPERIMENT, 'Пробой + ретест'],
-        [DailySupportBounceResearch::EXPERIMENT, 'Отскок от поддержки'],
-        [IntradaySupportBounce::EXPERIMENT, 'Ранний отскок · текущий день']].filter_map do |experiment, label|
-        next if @version != 'daily' && @version != experiment
-        family = rows.select { |s| s.experiment == experiment }
-        confirmed = family.select(&:confirmed_at)
-        { label: label, candidates: family.count { |s| s.reversal_status.in?(%w[possible forming]) }, results: DailyRetestOutcome::HORIZONS.map do |horizon|
-          results = confirmed.filter_map { |s| s.details.dig('outcomes', horizon.to_s) }
-          measured = results.select { |r| r['status'] == 'measured' }
-          { horizon: horizon, total: confirmed.size, measured: measured.size,
-            mean: measured.any? ? measured.sum { |r| r['trade_low'] } / measured.size : nil,
-            positive: measured.count { |r| r['trade_low'].positive? }, ambiguous: measured.count { |r| r['ambiguous'] } }
-        end }
-      end
     end
     scope = scope.where(reversal_status: @status) if @status
     @page = [params[:page].to_i, 1].max

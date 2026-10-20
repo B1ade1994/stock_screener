@@ -84,6 +84,34 @@ test("autoplay rejection leaves sound disabled without loading events", async ()
   assert.equal(s.chimes(), 0)
 })
 
+test("gesture recovery plays events accumulated during audio suspension exactly once", async () => {
+  const s = setup()
+  await s.sound.restore()
+  s.context.state = "suspended"
+  s.setId(20)
+  await s.sound.check()
+  assert.equal(s.chimes(), 0)
+  await s.sound.activateFromGesture()
+  await s.sound.check()
+  assert.equal(s.chimes(), 1)
+  assert.equal(s.sound.lastId, 20)
+})
+
+test("polling recovers from an initial network failure without another click", async () => {
+  const s = setup()
+  const loadLatest = s.sound.loadLatest
+  s.sound.loadLatest = async () => { throw new Error("offline") }
+  await s.sound.restore()
+  assert.equal(s.sound.enabled, false)
+  s.sound.loadLatest = loadLatest
+  await s.sound.check()
+  assert.equal(s.sound.enabled, true)
+  assert.equal(s.chimes(), 0)
+  s.setId(20)
+  await s.sound.check()
+  assert.equal(s.chimes(), 1)
+})
+
 test("chime schedules two short quiet tones and releases audio nodes", () => {
   const tones = [], gains = []
   const sound = new SignalSound({})

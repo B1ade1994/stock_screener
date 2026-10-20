@@ -24,7 +24,7 @@ export class SignalSound {
   }
 
   activateFromGesture() {
-    if (!this.wanted || !this.context || this.context.state === "running") return
+    if (!this.wanted || !this.context || (this.context.state === "running" && this.enabled)) return
     return this.enable({ automatic: true })
   }
 
@@ -61,7 +61,14 @@ export class SignalSound {
       audioReady = true
       const id = this.validId(await this.loadLatest())
       if (revision !== this.revision) return
-      this.lastId = id // Existing events, including events received while muted, are silent.
+      // Recovery must retain events received while the browser suspended audio.
+      // Only first activation and an explicit unmute snapshot existing events.
+      if (automatic && this.lastId !== null) {
+        if (id > this.lastId) this.play()
+        this.lastId = Math.max(this.lastId, id)
+      } else {
+        this.lastId = id
+      }
       this.enabled = true
       if (!automatic) this.play()
     } catch (error) {
@@ -87,6 +94,10 @@ export class SignalSound {
   }
 
   async check() {
+    // Retry initialization after a transient network failure once audio is unlocked.
+    if (this.wanted && !this.enabled && !this.enabling && this.context?.state === "running") {
+      return this.enable({ automatic: true })
+    }
     if (!this.enabled || this.pending || this.enabling) return
     const revision = this.revision
     this.pending = true
