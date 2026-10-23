@@ -1,0 +1,13 @@
+<% d = hint.details; setup = d.fetch('setup'); target = setup.fetch('target_zone'); up = d['direction'] == 'up' %>
+<section class="panel padded hint-card" id="<%= dom_id(hint) %>" data-hint-id="<%= hint.id %>">
+  <div class="panel-heading hint-heading"><div class="signal-symbol <%= up ? 'price-up' : 'price-down' %>" aria-hidden="true"><%= up ? '↗' : '↘' %></div>
+    <div class="hint-heading-content"><h2><%= link_to hint.instrument.ticker, instrument_path(hint.instrument), data: { turbo_frame: '_top' } %> · <%= hint.title %></h2>
+      <p>Подтверждён по минутному правилу · <%= hint.confirmed_at.in_time_zone.strftime('%d.%m.%Y %H:%M') %></p>
+    </div>
+  </div>
+  <p>Пробит<%= up ? 'ое сопротивление' : 'ая поддержка' %> <%= setup['frame'] == 'week' ? '1W' : '1D' %>: <%= signal_price(setup['lower']) %>–<%= signal_price(setup['upper']) %>. Цена при регистрации: <%= signal_price(d['decision_price']) %>.</p>
+  <p><strong>Стоп: <%= signal_price(d['stop']) %></strong> · цель: <%= signal_price(d['target']) %> — <%= up ? 'нижняя граница следующего сопротивления' : 'верхняя граница следующей поддержки' %> <%= target['frame'] == 'week' ? '1W' : '1D' %> (<%= signal_price(target['lower']) %>–<%= signal_price(target['upper']) %>). Расстояние до цели / до стопа: <%= number_with_precision(d['room_risk'], precision: 2) %>.</p>
+  <p><%= d['status_reason'] %>.</p>
+  <p class="muted">Закрытия: <%= d.fetch('early_evidence').map { |bar| "#{Time.iso8601(bar['time']).in_time_zone.strftime('%H:%M')} — #{signal_price(bar['close'])}" }.join(' · ') %>. Первое — до пробоя, следующие два — удержание за зоной. Уровни, стоп и цель зафиксированы при регистрации. Замеры показывают движение цены после уведомления, без имитации исполнения стопа или цели.</p>
+  <%= render 'signals/reaction', signal: hint %>
+</section>

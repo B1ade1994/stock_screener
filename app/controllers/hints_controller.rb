@@ -1,6 +1,9 @@
 class HintsController < ApplicationController
+  CURRENT_KINDS = [DailyRetestResearch::KIND, DailySupportBounceResearch::KIND,
+    IntradaySupportBounce::KIND, IntradayLevelBreakout::KIND].freeze
+
   def latest
-    hints = MarketSignal.where(kind: [DailyRetestResearch::KIND, DailySupportBounceResearch::KIND, IntradaySupportBounce::KIND])
+    hints = MarketSignal.where(kind: CURRENT_KINDS)
     # Confirming an older candidate must advance the cursor too. Routine outcome
     # updates, cancellations and expiry are silent; updated_at cannot be used.
     latest = [hints.maximum(:created_at), hints.maximum(:confirmed_at)].compact.max
@@ -9,11 +12,11 @@ class HintsController < ApplicationController
   end
 
   def index
-    @version = params[:version].presence_in(%w[daily archive directional_v1 directional_v2 daily_retest_v1 daily_support_bounce_v1 intraday_support_bounce_v1]) || 'daily'
+    @version = params[:version].presence_in(%w[daily archive directional_v1 directional_v2 daily_retest_v1 daily_support_bounce_v1 intraday_support_bounce_v1 intraday_level_breakout_v1]) || 'daily'
     @archive = %w[archive directional_v1 directional_v2].include?(@version)
     @date = params[:date].present? ? Date.iso8601(params[:date]) : (@archive ? Date.current : nil)
     @status = DirectionalHints::LABELS.key?(params[:status]) ? params[:status] : nil
-    scope = MarketSignal.where(kind: @archive ? DirectionalHints::KIND : [DailyRetestResearch::KIND, DailySupportBounceResearch::KIND, IntradaySupportBounce::KIND])
+    scope = MarketSignal.where(kind: @archive ? DirectionalHints::KIND : CURRENT_KINDS)
     if @date
       from = Time.zone.local(@date.year, @date.month, @date.day)
       scope = scope.where(created_at: from...from + 1.day)

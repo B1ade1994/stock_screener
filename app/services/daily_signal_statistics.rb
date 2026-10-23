@@ -9,6 +9,7 @@ class DailySignalStatistics
     'reversal' => 'Развороты: все кандидаты', 'confirmation' => 'Развороты: после подтверждения',
     'directional_hint' => 'Лонг/шорт v1: кандидаты', 'hint_confirmation' => 'Лонг/шорт v1: после подтверждения',
     'hint_v2' => 'Лонг/шорт v2: кандидаты', 'hint_v2_confirmation' => 'Лонг/шорт v2: после подтверждения',
+    'level_breakout' => 'Пробой зоны без ретеста: лонг / шорт',
     'levels' => 'Закрытия и развитие пробоя' }.freeze
 
   def self.call(date:, horizon:, full_only: true, non_overlapping: false, costs: SignalCosts.new, now: Time.current)
@@ -18,7 +19,9 @@ class DailySignalStatistics
     confirmed = MarketSignal.where(kind: %w[reversal directional_hint volume_followthrough], confirmed_at: period).includes(:confirmation_reaction).to_a
     legacy = initial.select { |signal| signal.kind == 'reversal' && signal.reversal_status == 'confirmed' && signal.confirmed_at.nil? }
     groups = initial.group_by do |signal|
-      if signal.kind == VolumeFollowThrough::KIND
+      if signal.kind == IntradayLevelBreakout::KIND
+        'level_breakout'
+      elsif signal.kind == VolumeFollowThrough::KIND
         signal.details['reason'].in?(%w[small_move missing_prices]) ? 'volume_trial_rejected' : 'volume_trial'
       elsif signal.kind == 'directional_hint' && signal.experiment == DirectionalHintResearch::EXPERIMENT
         'hint_v2'
@@ -52,7 +55,7 @@ class DailySignalStatistics
   def self.direction(signal)
     case signal.kind
     when 'volume' then { 'buy' => 1, 'sell' => -1 }[signal.episode_direction]
-    when 'reversal', 'reversal_structure', 'directional_hint', 'volume_followthrough', 'false_breakout' then { 'up' => 1, 'down' => -1 }[signal.details['direction']]
+    when 'reversal', 'reversal_structure', 'directional_hint', 'volume_followthrough', 'false_breakout', IntradayLevelBreakout::KIND then { 'up' => 1, 'down' => -1 }[signal.details['direction']]
     when 'crossing' then { 'resistance' => 1, 'support' => -1 }[signal.details['side']]
     end
   end

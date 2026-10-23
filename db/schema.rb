@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -51,6 +51,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
     t.string "history_error"
     t.datetime "history_synced_at"
     t.jsonb "intraday_bounce_state", default: {}, null: false
+    t.jsonb "intraday_breakout_state", default: {}, null: false
     t.string "kind", null: false
     t.decimal "last_price", precision: 24, scale: 9
     t.datetime "last_reversal_minute_at"

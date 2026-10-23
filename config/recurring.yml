@@ -23,6 +23,9 @@ development: &tasks
   refresh_intraday_bounces:
     class: RefreshIntradayBouncesJob
     schedule: every minute
+  refresh_intraday_breakouts:
+    class: RefreshIntradayBreakoutsJob
+    schedule: every minute
   refresh_history:
     class: RefreshHistoryJob
     schedule: every hour
